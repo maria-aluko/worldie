@@ -1,65 +1,129 @@
-import Image from "next/image";
+import Link from "next/link";
+import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
+import { Hero } from "@/components/landing/hero";
+import { Button } from "@/components/ui/button";
+import { LEVELS, LEVEL_ORDER } from "@/lib/constants";
+import { cn } from "@/lib/utils";
+
+const ACCENT: Record<string, string> = {
+  lime: "text-lime border-lime/30 hover:border-lime/60",
+  cyan: "text-cyan border-cyan/30 hover:border-cyan/60",
+  magenta: "text-magenta border-magenta/30 hover:border-magenta/60",
+};
+
+const STEPS = [
+  {
+    n: "01",
+    t: "Pick your level",
+    d: "Casual, Standard or Expert — go as deep as you dare.",
+  },
+  {
+    n: "02",
+    t: "Make the calls",
+    d: "Crown a champion, fill the bracket, predict the scores.",
+  },
+  {
+    n: "03",
+    t: "Share & compete",
+    d: "Post your card, invite friends, climb the live leaderboard.",
+  },
+];
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+    <>
+      <SiteHeader />
+      <main className="flex-1">
+        <Hero />
+
+        {/* How it works */}
+        <section className="mx-auto max-w-6xl px-5 py-16">
+          <div className="grid gap-4 sm:grid-cols-3">
+            {STEPS.map((s) => (
+              <div
+                key={s.n}
+                className="rounded-3xl border border-white/10 bg-ink-600/60 p-7"
+              >
+                <div className="font-display text-3xl font-extrabold text-lime/80">
+                  {s.n}
+                </div>
+                <h3 className="mt-4 font-display text-xl font-bold">{s.t}</h3>
+                <p className="mt-2 text-sm text-muted">{s.d}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Levels */}
+        <section className="mx-auto max-w-6xl px-5 py-10">
+          <div className="mb-8 text-center">
+            <h2 className="font-display text-4xl font-extrabold sm:text-5xl">
+              Three ways to play
+            </h2>
+            <p className="mx-auto mt-3 max-w-md text-muted">
+              Choose how far down the rabbit hole you go. More depth, more points.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            {LEVEL_ORDER.map((id) => {
+              const lv = LEVELS[id];
+              return (
+                <Link
+                  key={id}
+                  href={`/predict/${id}`}
+                  className={cn(
+                    "group flex flex-col rounded-3xl border bg-ink-600/60 p-7 transition-all duration-300 hover:-translate-y-1",
+                    ACCENT[lv.accent],
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-display text-2xl font-extrabold text-paper">
+                      {lv.name}
+                    </span>
+                    <span className="text-xs font-semibold uppercase tracking-widest text-faint">
+                      {lv.minutes}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm font-semibold">{lv.tagline}</p>
+                  <p className="mt-3 text-sm text-muted">{lv.blurb}</p>
+                  <ul className="mt-5 space-y-2 text-sm text-paper/80">
+                    {lv.includes.map((it) => (
+                      <li key={it} className="flex gap-2">
+                        <span className="text-current">›</span>
+                        {it}
+                      </li>
+                    ))}
+                  </ul>
+                  <span className="mt-6 inline-flex items-center gap-1 font-display text-sm font-bold uppercase tracking-wide">
+                    Play {lv.name}
+                    <span className="transition-transform group-hover:translate-x-1">→</span>
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* CTA */}
+        <section className="mx-auto max-w-6xl px-5 py-16">
+          <div className="relative overflow-hidden rounded-[2rem] border border-lime/20 bg-gradient-to-br from-ink-600 to-ink p-10 text-center sm:p-16">
+            <h2 className="font-display text-4xl font-extrabold sm:text-6xl">
+              Your bracket is <span className="text-gradient">waiting.</span>
+            </h2>
+            <p className="mx-auto mt-4 max-w-md text-muted">
+              48 teams. 104 matches. One champion. Make the calls before the
+              world finds out who&apos;s right.
+            </p>
+            <div className="mt-8">
+              <Button href="/predict" size="lg">
+                Start predicting →
+              </Button>
+            </div>
+          </div>
+        </section>
       </main>
-    </div>
+      <SiteFooter />
+    </>
   );
 }

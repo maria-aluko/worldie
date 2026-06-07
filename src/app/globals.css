@@ -1,26 +1,144 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ============================================================
+   WORLDIE — Design tokens (Tailwind v4 @theme)
+   Bold & energetic: neon pitch-green, hot magenta, electric
+   cyan, trophy gold on a deep ink base.
+   ============================================================ */
+@theme {
+  /* Base / ink */
+  --color-ink: #08080c;
+  --color-ink-700: #101019;
+  --color-ink-600: #16161f;
+  --color-ink-500: #1d1d2a;
+  --color-ink-400: #2a2a3a;
+
+  /* Foreground */
+  --color-paper: #f6f7fb;
+  --color-muted: #9aa0b4;
+  --color-faint: #5b6075;
+
+  /* Brand accents */
+  --color-lime: #ccff00; /* primary — pitch/turf energy */
+  --color-lime-bright: #d8ff3d;
+  --color-magenta: #ff2d78; /* secondary — hype */
+  --color-cyan: #00e5ff; /* tertiary — electric */
+  --color-gold: #ffcb2d; /* champion / trophy */
+  --color-violet: #8b5cff; /* depth accent */
+
+  /* Semantic */
+  --color-background: var(--color-ink);
+  --color-foreground: var(--color-paper);
+
+  /* Fonts (wired in layout.tsx) */
+  --font-display: var(--font-unbounded), system-ui, sans-serif;
+  --font-sans: var(--font-jakarta), system-ui, sans-serif;
+
+  /* Radii */
+  --radius-xl2: 1.75rem;
+
+  /* Easing */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Animations */
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-shimmer: shimmer 2.5s linear infinite;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+* {
+  border-color: color-mix(in srgb, var(--color-paper) 8%, transparent);
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-ink);
+  color: var(--color-paper);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+/* Ambient page glow */
+.bg-pitch {
+  background-color: var(--color-ink);
+  background-image:
+    radial-gradient(60rem 40rem at 12% -10%, color-mix(in srgb, var(--color-magenta) 22%, transparent), transparent 60%),
+    radial-gradient(55rem 38rem at 92% 0%, color-mix(in srgb, var(--color-cyan) 18%, transparent), transparent 55%),
+    radial-gradient(70rem 50rem at 50% 120%, color-mix(in srgb, var(--color-lime) 14%, transparent), transparent 60%);
+}
+
+/* Neon text helpers */
+.text-glow-lime { text-shadow: 0 0 24px color-mix(in srgb, var(--color-lime) 55%, transparent); }
+.text-glow-gold { text-shadow: 0 0 28px color-mix(in srgb, var(--color-gold) 60%, transparent); }
+
+/* Gradient text */
+.text-gradient {
+  background: linear-gradient(100deg, var(--color-lime) 0%, var(--color-cyan) 50%, var(--color-magenta) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Shimmer sweep for skeletons */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-ink-500) 25%,
+    var(--color-ink-400) 37%,
+    var(--color-ink-500) 63%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--color-ink); }
+::-webkit-scrollbar-thumb {
+  background: var(--color-ink-400);
+  border-radius: 9999px;
+  border: 2px solid var(--color-ink);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-faint); }
+
+::selection {
+  background: var(--color-lime);
+  color: var(--color-ink);
+}
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid var(--color-lime);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -1,0 +1,399 @@
+"use client";
+
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
+import type { Level, Match, Team } from "@/lib/types";
+import { LEVELS } from "@/lib/constants";
+import { Button } from "@/components/ui/button";
+import { Wordmark } from "@/components/ui/wordmark";
+import { createEntry } from "@/lib/actions/entry";
+import {
+  emptyState,
+  flattenToPicks,
+  qualifiers,
+  type PredictionState,
+} from "@/lib/predict/model";
+import { SelectN } from "./steps/select-n";
+import { GroupQualifiers } from "./steps/group-qualifiers";
+import { GroupScores } from "./steps/group-scores";
+import { ChampionPick } from "./steps/champion-pick";
+import { GoldenBoot } from "./steps/golden-boot";
+
+interface Step {
+  key: string;
+  title: string;
+  subtitle: string;
+  valid: boolean;
+  node: React.ReactNode;
+}
+
+export function Predictor({
+  level,
+  teams,
+  matches,
+}: {
+  level: Level;
+  teams: Team[];
+  matches: Match[];
+}) {
+  const router = useRouter();
+  const [state, setState] = useState<PredictionState>(emptyState);
+  const [index, setIndex] = useState(0);
+  const [name, setName] = useState("");
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  const teamsById = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
+  const groups = useMemo(
+    () => [...new Set(teams.map((t) => t.group).filter(Boolean))].sort() as string[],
+    [teams],
+  );
+  const teamsByGroup = useMemo(() => {
+    const m: Record<string, Team[]> = {};
+    for (const g of groups) m[g] = teams.filter((t) => t.group === g);
+    return m;
+  }, [groups, teams]);
+  const matchesByGroup = useMemo(() => {
+    const m: Record<string, Match[]> = {};
+    for (const g of groups) m[g] = matches.filter((mt) => mt.group === g);
+    return m;
+  }, [groups, matches]);
+
+  const pick = (ids: string[]) => ids.map((id) => teamsById.get(id)!).filter(Boolean);
+
+  // Helpers to mutate state immutably.
+  const toggleIn = (key: keyof PredictionState, id: string, max: number) =>
+    setState((s) => {
+      const cur = (s[key] as string[]) ?? [];
+      const next = cur.includes(id)
+        ? cur.filter((x) => x !== id)
+        : cur.length < max
+          ? [...cur, id]
+          : cur;
+      return { ...s, [key]: next };
+    });
+
+  const quals = qualifiers(level, state, teams, matches);
+
+  const steps: Step[] = useMemo(() => {
+    const meta = LEVELS[level];
+    const list: Step[] = [];
+
+    if (level === "casual") {
+      list.push({
+        key: "finalists",
+        title: "Pick your two finalists",
+        subtitle: "Who walks out for the final in New Jersey?",
+        valid: state.finalists.length === 2,
+        node: (
+          <SelectN
+            teams={teams}
+            selected={state.finalists}
+            max={2}
+            onToggle={(id) => toggleIn("finalists", id, 2)}
+          />
+        ),
+      });
+      list.push({
+        key: "champion",
+        title: "Crown your champion",
+        subtitle: "One of your two finalists lifts the trophy.",
+        valid: state.champion != null,
+        node: (
+          <ChampionPick
+            candidates={pick(state.finalists)}
+            value={state.champion}
+            onSelect={(id) => setState((s) => ({ ...s, champion: id }))}
+          />
+        ),
+      });
+    } else {
+      // group stage
+      if (level === "standard") {
+        list.push({
+          key: "groups",
+          title: "Who escapes the groups?",
+          subtitle: "Pick the top 2 from each of the 12 groups.",
+          valid: groups.every((g) => (state.groupTop2[g]?.length ?? 0) === 2),
+          node: (
+            <GroupQualifiers
+              groups={groups}
+              teamsByGroup={teamsByGroup}
+              value={state.groupTop2}
+              onChange={(g, ids) =>
+                setState((s) => ({ ...s, groupTop2: { ...s.groupTop2, [g]: ids } }))
+              }
+            />
+          ),
+        });
+      } else {
+        list.push({
+          key: "scores",
+          title: "Predict every group score",
+          subtitle: "Tables update live — top 2 of each group advance.",
+          valid: Object.keys(state.groupScores).length >= matches.length,
+          node: (
+            <GroupScores
+              groups={groups}
+              teamsByGroup={teamsByGroup}
+              matchesByGroup={matchesByGroup}
+              teamsById={teamsById}
+              value={state.groupScores}
+              onSet={(id, score) =>
+                setState((s) => ({ ...s, groupScores: { ...s.groupScores, [id]: score } }))
+              }
+            />
+          ),
+        });
+      }
+
+      list.push({
+        key: "r16",
+        title: "Round of 16",
+        subtitle: "Send 16 of your 24 qualifiers through.",
+        valid: state.reach_r16.length === 16,
+        node: (
+          <SelectN
+            teams={pick(quals)}
+            selected={state.reach_r16}
+            max={16}
+            onToggle={(id) => toggleIn("reach_r16", id, 16)}
+          />
+        ),
+      });
+      list.push({
+        key: "qf",
+        title: "Quarter-finals",
+        subtitle: "Pick the 8 still standing.",
+        valid: state.reach_qf.length === 8,
+        node: (
+          <SelectN
+            teams={pick(state.reach_r16)}
+            selected={state.reach_qf}
+            max={8}
+            onToggle={(id) => toggleIn("reach_qf", id, 8)}
+          />
+        ),
+      });
+      list.push({
+        key: "sf",
+        title: "Semi-finals",
+        subtitle: "Your final four.",
+        valid: state.reach_sf.length === 4,
+        node: (
+          <SelectN
+            teams={pick(state.reach_qf)}
+            selected={state.reach_sf}
+            max={4}
+            onToggle={(id) => toggleIn("reach_sf", id, 4)}
+          />
+        ),
+      });
+      list.push({
+        key: "final",
+        title: "The Final",
+        subtitle: "Two teams left. Who makes it?",
+        valid: state.finalists.length === 2,
+        node: (
+          <SelectN
+            teams={pick(state.reach_sf)}
+            selected={state.finalists}
+            max={2}
+            onToggle={(id) => toggleIn("finalists", id, 2)}
+          />
+        ),
+      });
+      list.push({
+        key: "champion",
+        title: "Crown your champion",
+        subtitle: "The moment of truth.",
+        valid: state.champion != null,
+        node: (
+          <ChampionPick
+            candidates={pick(state.finalists)}
+            value={state.champion}
+            onSelect={(id) => setState((s) => ({ ...s, champion: id }))}
+          />
+        ),
+      });
+      list.push({
+        key: "golden",
+        title: "Golden Boot",
+        subtitle: "Whose nation tops the scoring charts?",
+        valid: state.goldenBoot != null,
+        node: (
+          <GoldenBoot
+            teams={teams}
+            value={state.goldenBoot}
+            onSelect={(id) => setState((s) => ({ ...s, goldenBoot: id }))}
+          />
+        ),
+      });
+    }
+
+    // Review step (all levels)
+    list.push({
+      key: "review",
+      title: "Lock it in",
+      subtitle: meta.tagline,
+      valid: true,
+      node: (
+        <Review
+          state={state}
+          teamsById={teamsById}
+          name={name}
+          onName={setName}
+        />
+      ),
+    });
+
+    return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [level, state, name, groups, teamsByGroup, matchesByGroup, teamsById]);
+
+  const step = steps[index];
+  const isLast = index === steps.length - 1;
+  const progress = Math.round(((index + 1) / steps.length) * 100);
+
+  function next() {
+    setError(null);
+    if (isLast) return submit();
+    if (!step.valid) {
+      setError("Finish this step to continue.");
+      return;
+    }
+    setIndex((i) => Math.min(i + 1, steps.length - 1));
+  }
+  function back() {
+    setError(null);
+    setIndex((i) => Math.max(0, i - 1));
+  }
+
+  function submit() {
+    start(async () => {
+      const picks = flattenToPicks(level, state, teams, matches);
+      const res = await createEntry({
+        level,
+        displayName: name.trim() || undefined,
+        picks,
+      });
+      if (res.ok && res.slug) router.push(`/p/${res.slug}`);
+      else setError(res.error ?? "Something went wrong.");
+    });
+  }
+
+  return (
+    <div className="flex min-h-dvh flex-col">
+      {/* top bar */}
+      <header className="sticky top-0 z-40 border-b border-white/5 bg-ink/80 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-5 py-3">
+          <Wordmark />
+          <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-muted">
+            {LEVELS[level].name}
+          </span>
+        </div>
+        <div className="h-1 w-full bg-ink-500">
+          <motion.div
+            className="h-full bg-lime"
+            animate={{ width: `${progress}%` }}
+            transition={{ ease: "easeOut", duration: 0.4 }}
+          />
+        </div>
+      </header>
+
+      {/* body */}
+      <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-8">
+        <div className="mb-6">
+          <p className="text-xs font-semibold uppercase tracking-widest text-faint">
+            Step {index + 1} of {steps.length}
+          </p>
+          <h1 className="mt-1 font-display text-3xl font-extrabold sm:text-4xl">
+            {step.title}
+          </h1>
+          <p className="mt-1 text-muted">{step.subtitle}</p>
+        </div>
+
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={step.key}
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -24 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {step.node}
+          </motion.div>
+        </AnimatePresence>
+      </main>
+
+      {/* footer nav */}
+      <footer className="sticky bottom-0 z-40 border-t border-white/5 bg-ink/80 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-5 py-4">
+          <Button variant="ghost" onClick={back} disabled={index === 0 || pending}>
+            ← Back
+          </Button>
+          {error && <p className="text-sm text-magenta">{error}</p>}
+          <Button onClick={next} disabled={pending || !step.valid}>
+            {pending ? "Saving…" : isLast ? "Get my card →" : "Continue →"}
+          </Button>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+function Review({
+  state,
+  teamsById,
+  name,
+  onName,
+}: {
+  state: PredictionState;
+  teamsById: Map<string, Team>;
+  name: string;
+  onName: (v: string) => void;
+}) {
+  const champ = state.champion ? teamsById.get(state.champion) : null;
+  return (
+    <div className="space-y-6">
+      <div className="rounded-3xl border border-gold/30 bg-gradient-to-br from-gold/10 to-transparent p-8 text-center">
+        <p className="text-xs font-bold uppercase tracking-widest text-gold">Your champion</p>
+        {champ ? (
+          <>
+            <div className="mt-3 text-7xl">{champ.flag}</div>
+            <div className="mt-2 font-display text-3xl font-extrabold">{champ.name}</div>
+          </>
+        ) : (
+          <p className="mt-3 text-muted">No champion picked yet.</p>
+        )}
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
+          {state.finalists.map((id) => {
+            const t = teamsById.get(id);
+            return t ? (
+              <span
+                key={id}
+                className="rounded-full border border-white/10 px-3 py-1 text-sm"
+              >
+                {t.flag} {t.code}
+              </span>
+            ) : null;
+          })}
+        </div>
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-semibold text-muted">
+          Add your name (optional) — shows on your shareable card
+        </label>
+        <input
+          value={name}
+          onChange={(e) => onName(e.target.value)}
+          maxLength={40}
+          placeholder="e.g. Maria"
+          className="h-12 w-full rounded-2xl border border-white/10 bg-ink-600/60 px-4 text-paper outline-none placeholder:text-faint focus:border-lime"
+        />
+      </div>
+    </div>
+  );
+}
