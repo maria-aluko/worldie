@@ -104,12 +104,6 @@ export function flattenToPicks(
   const add = (ref: string, teamId: string | null) =>
     picks.push({ ref, pickTeamId: teamId, predHome: null, predAway: null });
 
-  if (level === "casual") {
-    state.finalists.forEach((id) => add("reach_final", id));
-    if (state.champion) add("champion", state.champion);
-    return picks;
-  }
-
   // standard + expert
   qualifiers(level, state, teams, matches).forEach((id) => add("reach_r32", id));
   state.reach_r16.forEach((id) => add("reach_r16", id));

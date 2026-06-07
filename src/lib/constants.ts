@@ -36,25 +36,17 @@ export interface LevelMeta {
 }
 
 export const LEVELS: Record<Level, LevelMeta> = {
-  casual: {
-    id: "casual",
-    name: "Casual",
-    tagline: "Crown your champion",
-    minutes: "~30 sec",
-    blurb: "Just the big picks. Perfect for a quick, shareable take.",
-    includes: ["Pick the champion", "Pick both finalists"],
-    accent: "lime",
-  },
   standard: {
     id: "standard",
     name: "Standard",
-    tagline: "Fill the bracket",
+    tagline: "Pick who progresses",
     minutes: "~3 min",
-    blurb: "Run the full knockout gauntlet and call the Golden Boot.",
+    blurb:
+      "Pick the teams that advance at every stage, all the way to the trophy.",
     includes: [
+      "Top 2 from all 12 groups",
       "Full knockout bracket (R32 → Final)",
-      "Champion",
-      "Golden Boot winner",
+      "Champion & Golden Boot",
     ],
     accent: "cyan",
   },
@@ -73,4 +65,4 @@ export const LEVELS: Record<Level, LevelMeta> = {
   },
 };
 
-export const LEVEL_ORDER: Level[] = ["casual", "standard", "expert"];
+export const LEVEL_ORDER: Level[] = ["standard", "expert"];

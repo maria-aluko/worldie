@@ -1,32 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { joinGroup } from "@/lib/actions/group";
-
-export function JoinThisGroup({ code }: { code: string }) {
-  const router = useRouter();
-  const [pending, start] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  return (
-    <div>
-      <Button
-        onClick={() =>
-          start(async () => {
-            const res = await joinGroup(code);
-            if (res.ok) router.refresh();
-            else setError(res.error ?? "Couldn't join.");
-          })
-        }
-        disabled={pending}
-      >
-        {pending ? "Joining…" : "Join with my prediction"}
-      </Button>
-      {error && <p className="mt-2 text-sm text-magenta">{error}</p>}
-    </div>
-  );
-}
 
 export function CopyInvite({ url, code }: { url: string; code: string }) {
   const [copied, setCopied] = useState(false);

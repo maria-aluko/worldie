@@ -8,6 +8,7 @@ import { LEVELS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Wordmark } from "@/components/ui/wordmark";
 import { createEntry } from "@/lib/actions/entry";
+import { createGroup, joinGroup } from "@/lib/actions/group";
 import {
   emptyState,
   flattenToPicks,
@@ -28,14 +29,21 @@ interface Step {
   node: React.ReactNode;
 }
 
+/** Where the predictor sends the player once their entry is saved. */
+export type GroupContext =
+  | { mode: "create"; name: string }
+  | { mode: "join"; inviteCode: string };
+
 export function Predictor({
   level,
   teams,
   matches,
+  groupContext,
 }: {
   level: Level;
   teams: Team[];
   matches: Match[];
+  groupContext?: GroupContext;
 }) {
   const router = useRouter();
   const [state, setState] = useState<PredictionState>(emptyState);
@@ -80,37 +88,8 @@ export function Predictor({
     const meta = LEVELS[level];
     const list: Step[] = [];
 
-    if (level === "casual") {
-      list.push({
-        key: "finalists",
-        title: "Pick your two finalists",
-        subtitle: "Who walks out for the final in New Jersey?",
-        valid: state.finalists.length === 2,
-        node: (
-          <SelectN
-            teams={teams}
-            selected={state.finalists}
-            max={2}
-            onToggle={(id) => toggleIn("finalists", id, 2)}
-          />
-        ),
-      });
-      list.push({
-        key: "champion",
-        title: "Crown your champion",
-        subtitle: "One of your two finalists lifts the trophy.",
-        valid: state.champion != null,
-        node: (
-          <ChampionPick
-            candidates={pick(state.finalists)}
-            value={state.champion}
-            onSelect={(id) => setState((s) => ({ ...s, champion: id }))}
-          />
-        ),
-      });
-    } else {
-      // group stage
-      if (level === "standard") {
+    // group stage
+    if (level === "standard") {
         list.push({
           key: "groups",
           title: "Who escapes the groups?",
@@ -230,7 +209,6 @@ export function Predictor({
           />
         ),
       });
-    }
 
     // Review step (all levels)
     list.push({
@@ -255,6 +233,12 @@ export function Predictor({
   const step = steps[index];
   const isLast = index === steps.length - 1;
   const progress = Math.round(((index + 1) / steps.length) * 100);
+  const finishLabel =
+    groupContext?.mode === "create"
+      ? "Create group →"
+      : groupContext?.mode === "join"
+        ? "Join group →"
+        : "Get my card →";
 
   function next() {
     setError(null);
@@ -278,8 +262,30 @@ export function Predictor({
         displayName: name.trim() || undefined,
         picks,
       });
-      if (res.ok && res.slug) router.push(`/p/${res.slug}`);
-      else setError(res.error ?? "Something went wrong.");
+      if (!res.ok || !res.slug || !res.entryId) {
+        setError(res.error ?? "Something went wrong.");
+        return;
+      }
+
+      // No group context → the standard share flow.
+      if (!groupContext) {
+        router.push(`/p/${res.slug}`);
+        return;
+      }
+
+      // Finish the entry straight into a group.
+      if (groupContext.mode === "create") {
+        const g = await createGroup({ name: groupContext.name, entryId: res.entryId });
+        if (g.ok && g.slug) router.push(`/g/${g.slug}`);
+        else setError(g.error ?? "Could not create the group.");
+      } else {
+        const g = await joinGroup({
+          inviteCode: groupContext.inviteCode,
+          entryId: res.entryId,
+        });
+        if (g.ok) router.push(`/g/${groupContext.inviteCode}`);
+        else setError(g.error ?? "Could not join the group.");
+      }
     });
   }
 
@@ -335,7 +341,7 @@ export function Predictor({
           </Button>
           {error && <p className="text-sm text-magenta">{error}</p>}
           <Button onClick={next} disabled={pending || !step.valid}>
-            {pending ? "Saving…" : isLast ? "Get my card →" : "Continue →"}
+            {pending ? "Saving…" : isLast ? finishLabel : "Continue →"}
           </Button>
         </div>
       </footer>

@@ -97,6 +97,7 @@ export const groups = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
+    level: text("level").notNull(), // Level — the format every member plays
     inviteSlug: text("invite_slug").notNull(),
     createdByUserId: uuid("created_by_user_id").references(() => users.id, {
       onDelete: "set null",

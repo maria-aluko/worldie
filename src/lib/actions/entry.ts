@@ -14,7 +14,7 @@ const pickSchema = z.object({
 });
 
 const submitSchema = z.object({
-  level: z.enum(["casual", "standard", "expert"]),
+  level: z.enum(["standard", "expert"]),
   displayName: z.string().trim().max(40).optional(),
   picks: z.array(pickSchema).min(1).max(400),
 });
@@ -24,6 +24,7 @@ export type SubmitInput = z.infer<typeof submitSchema>;
 export interface SubmitResult {
   ok: boolean;
   slug?: string;
+  entryId?: string;
   error?: string;
 }
 
@@ -69,7 +70,7 @@ export async function createEntry(raw: SubmitInput): Promise<SubmitResult> {
     }));
     if (rows.length) await db.insert(schema.entryPicks).values(rows);
 
-    return { ok: true, slug };
+    return { ok: true, slug, entryId: entry.id };
   } catch (err) {
     console.error("createEntry failed", err);
     return { ok: false, error: "Could not save your prediction. Please try again." };

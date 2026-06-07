@@ -97,6 +97,7 @@ export interface GroupMemberView {
 export interface GroupView {
   id: string;
   name: string;
+  level: Level;
   inviteSlug: string;
   members: GroupMemberView[];
 }
@@ -144,7 +145,13 @@ export async function getGroupBySlug(slug: string): Promise<GroupView | null> {
     }))
     .sort((a, b) => b.points - a.points);
 
-  return { id: g.id, name: g.name, inviteSlug: g.inviteSlug, members };
+  return {
+    id: g.id,
+    name: g.name,
+    level: g.level as Level,
+    inviteSlug: g.inviteSlug,
+    members,
+  };
 }
 
 /** Leaderboard rows for a set of entry ids (used by groups). */

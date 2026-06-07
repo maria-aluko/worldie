@@ -34,7 +34,7 @@ export default function PredictHome() {
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="mx-auto grid max-w-3xl gap-4 md:grid-cols-2">
           {LEVEL_ORDER.map((id) => {
             const lv = LEVELS[id];
             return (

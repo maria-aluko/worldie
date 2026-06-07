@@ -1,9 +1,8 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
-import { JoinThisGroup, CopyInvite } from "@/components/groups/group-actions";
+import { CopyInvite } from "@/components/groups/group-actions";
 import { getGroupBySlug } from "@/lib/queries";
 import { getUserIdFromCookie } from "@/lib/identity";
 import { TEAMS_BY_ID } from "@/lib/data/teams";
@@ -35,7 +34,12 @@ export default async function GroupPage({
       <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-10">
         <div className="mb-6">
           <p className="text-xs font-bold uppercase tracking-widest text-faint">Group</p>
-          <h1 className="font-display text-4xl font-extrabold">{group.name}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="font-display text-4xl font-extrabold">{group.name}</h1>
+            <span className="rounded-full border border-white/15 px-3 py-1 text-xs font-bold uppercase tracking-widest text-muted">
+              {LEVELS[group.level].name}
+            </span>
+          </div>
           <p className="mt-2 text-muted">
             {group.members.length} member{group.members.length === 1 ? "" : "s"} ·{" "}
             {anyScores ? "Live standings" : "Leaderboard unlocks at kick-off"}
@@ -50,12 +54,12 @@ export default async function GroupPage({
           <div className="mb-8 rounded-3xl border border-lime/20 bg-ink-600/60 p-6">
             <h2 className="font-display text-xl font-bold">Join this group</h2>
             <p className="mb-4 mt-1 text-sm text-muted">
-              We&apos;ll add your most recent prediction. Haven&apos;t played yet?{" "}
-              <Link href="/predict" className="text-lime hover:underline">
-                Make one first.
-              </Link>
+              This group plays {LEVELS[group.level].name}. Make your prediction to
+              take your spot on the leaderboard.
             </p>
-            <JoinThisGroup code={group.inviteSlug} />
+            <Button href={`/predict/${group.level}?join=${group.inviteSlug}`}>
+              Make your prediction to join →
+            </Button>
           </div>
         )}
 
@@ -102,11 +106,16 @@ export default async function GroupPage({
           })}
         </div>
 
-        <div className="mt-8 text-center">
-          <Button href="/predict" variant="outline">
-            Make or update your prediction →
-          </Button>
-        </div>
+        {isMember && (
+          <div className="mt-8 text-center">
+            <Button
+              href={`/predict/${group.level}?join=${group.inviteSlug}`}
+              variant="outline"
+            >
+              Update your prediction →
+            </Button>
+          </div>
+        )}
       </main>
     </>
   );

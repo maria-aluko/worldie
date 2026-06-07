@@ -2,7 +2,7 @@
 
 export type Stage = "group" | "r32" | "r16" | "qf" | "sf" | "third" | "final";
 
-export type Level = "casual" | "standard" | "expert";
+export type Level = "standard" | "expert";
 
 export type MatchStatus = "scheduled" | "live" | "finished";
 
