@@ -22,6 +22,8 @@ export const SCORING = {
     reach_final: 18,
   } as Record<string, number>,
   champion: 30,
+  runnerUp: 18,
+  thirdPlace: 10,
   // Match scoreline (group stage).
   groupWinner: 3,
   exactScoreBonus: 2,
@@ -82,6 +84,20 @@ export function actualChampion(matches: Match[]): string | null {
   return final.homeScore > final.awayScore ? final.homeTeamId : final.awayTeamId;
 }
 
+/** The runner-up is the loser of the (finished) final. */
+export function actualRunnerUp(matches: Match[]): string | null {
+  const final = matches.find((m) => m.stage === "final" && m.status === "finished");
+  if (!final || final.homeScore == null || final.awayScore == null) return null;
+  return final.homeScore > final.awayScore ? final.awayTeamId : final.homeTeamId;
+}
+
+/** Third place is the winner of the (finished) third-place playoff. */
+export function actualThirdPlace(matches: Match[]): string | null {
+  const m = matches.find((x) => x.stage === "third" && x.status === "finished");
+  if (!m || m.homeScore == null || m.awayScore == null) return null;
+  return m.homeScore > m.awayScore ? m.homeTeamId : m.awayTeamId;
+}
+
 /** Score one player's picks against current results. */
 export function scorePicks(
   picks: Pick[],
@@ -90,6 +106,8 @@ export function scorePicks(
 ): ScoredPick[] {
   const reached = teamsReachedByStage(matches);
   const champion = actualChampion(matches);
+  const runnerUp = actualRunnerUp(matches);
+  const thirdPlace = actualThirdPlace(matches);
   const matchById = new Map(matches.map((m) => [m.id, m]));
   const out: ScoredPick[] = [];
 
@@ -117,6 +135,30 @@ export function scorePicks(
         pickTeamId: p.pickTeamId,
         points: ok ? SCORING.champion : 0,
         detail: ok ? `champion +${SCORING.champion}` : "",
+      });
+      continue;
+    }
+
+    // Runner-up (loser of the final).
+    if (p.ref === "runner_up") {
+      const ok = runnerUp != null && p.pickTeamId === runnerUp;
+      out.push({
+        ref: p.ref,
+        pickTeamId: p.pickTeamId,
+        points: ok ? SCORING.runnerUp : 0,
+        detail: ok ? `runner-up +${SCORING.runnerUp}` : "",
+      });
+      continue;
+    }
+
+    // Third place (winner of the 3rd-place playoff).
+    if (p.ref === "third_place") {
+      const ok = thirdPlace != null && p.pickTeamId === thirdPlace;
+      out.push({
+        ref: p.ref,
+        pickTeamId: p.pickTeamId,
+        points: ok ? SCORING.thirdPlace : 0,
+        detail: ok ? `third place +${SCORING.thirdPlace}` : "",
       });
       continue;
     }

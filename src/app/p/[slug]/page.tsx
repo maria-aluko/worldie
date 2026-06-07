@@ -64,7 +64,8 @@ export default async function EntryPage({
           level={entry.level}
           name={entry.displayName}
           champion={s.championTeam}
-          finalists={s.finalistTeams as never}
+          runnerUp={s.runnerUpTeam}
+          third={s.thirdTeam}
           goldenBoot={s.goldenBootTeam}
         />
 

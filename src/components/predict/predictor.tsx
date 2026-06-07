@@ -90,7 +90,8 @@ export function Predictor({
     });
 
   const quals = qualifiers(level, state, teams, matches);
-  const thirdCandidates = thirdPlaceCandidates(level, state, teams, matches);
+  const thirdCandidates = thirdPlaceCandidates(state);
+  const bronzeCandidates = state.reach_sf.filter((id) => !state.finalists.includes(id));
 
   const steps: Step[] = useMemo(() => {
     const meta = LEVELS[level];
@@ -101,15 +102,26 @@ export function Predictor({
         list.push({
           key: "groups",
           title: "Who escapes the groups?",
-          subtitle: "Pick the top 2 from each of the 12 groups.",
-          valid: groups.every((g) => (state.groupTop2[g]?.length ?? 0) === 2),
+          subtitle: "Pick the top 2 of each group, then who finishes 3rd.",
+          valid: groups.every(
+            (g) => (state.groupTop2[g]?.length ?? 0) === 2 && !!state.groupThird[g],
+          ),
           node: (
             <GroupQualifiers
               groups={groups}
               teamsByGroup={teamsByGroup}
               value={state.groupTop2}
+              third={state.groupThird}
               onChange={(g, ids) =>
                 setState((s) => ({ ...s, groupTop2: { ...s.groupTop2, [g]: ids } }))
+              }
+              onThird={(g, id) =>
+                setState((s) => {
+                  const next = { ...s.groupThird };
+                  if (id) next[g] = id;
+                  else delete next[g];
+                  return { ...s, groupThird: next };
+                })
               }
             />
           ),
@@ -135,20 +147,24 @@ export function Predictor({
         });
       }
 
-      list.push({
-        key: "third",
-        title: "Best third-placed teams",
-        subtitle: "8 of the 12 third-placed teams also qualify. Which ones make it?",
-        valid: state.thirdPlace.length === 8,
-        node: (
-          <SelectN
-            teams={pick(thirdCandidates)}
-            selected={state.thirdPlace}
-            max={8}
-            onToggle={(id) => toggleIn("thirdPlace", id, 8)}
-          />
-        ),
-      });
+      // Standard players choose the 8 lucky losers from the 12 teams they
+      // designated 3rd; expert auto-solves this from the predicted scorelines.
+      if (level === "standard") {
+        list.push({
+          key: "third",
+          title: "Best third-placed teams",
+          subtitle: "8 of your 12 third-placed teams also qualify. Which ones make it?",
+          valid: state.thirdPlace.length === 8,
+          node: (
+            <SelectN
+              teams={pick(thirdCandidates)}
+              selected={state.thirdPlace}
+              max={8}
+              onToggle={(id) => toggleIn("thirdPlace", id, 8)}
+            />
+          ),
+        });
+      }
       list.push({
         key: "r16",
         title: "Round of 32",
@@ -215,6 +231,20 @@ export function Predictor({
             candidates={pick(state.finalists)}
             value={state.champion}
             onSelect={(id) => setState((s) => ({ ...s, champion: id }))}
+          />
+        ),
+      });
+      list.push({
+        key: "bronze",
+        title: "The bronze medal",
+        subtitle: "Which beaten semi-finalist wins the third-place playoff?",
+        valid: state.bronze != null && bronzeCandidates.includes(state.bronze),
+        node: (
+          <ChampionPick
+            candidates={pick(bronzeCandidates)}
+            value={state.bronze}
+            tone="bronze"
+            onSelect={(id) => setState((s) => ({ ...s, bronze: id }))}
           />
         ),
       });
@@ -385,10 +415,20 @@ function Review({
   onName: (v: string) => void;
 }) {
   const champ = state.champion ? teamsById.get(state.champion) : null;
+  const runnerUpId = state.finalists.find((id) => id !== state.champion);
+  const podium: { medal: string; label: string; team?: Team }[] = [
+    { medal: "🥇", label: "Champion", team: champ ?? undefined },
+    {
+      medal: "🥈",
+      label: "Runner-up",
+      team: runnerUpId ? teamsById.get(runnerUpId) : undefined,
+    },
+    { medal: "🥉", label: "Third", team: state.bronze ? teamsById.get(state.bronze) : undefined },
+  ];
   return (
     <div className="space-y-6">
       <div className="rounded-3xl border border-gold/30 bg-gradient-to-br from-gold/10 to-transparent p-8 text-center">
-        <p className="text-xs font-bold uppercase tracking-widest text-gold">Your champion</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-gold">Your podium</p>
         {champ ? (
           <>
             <div className="mt-3 text-7xl">{champ.flag}</div>
@@ -397,18 +437,20 @@ function Review({
         ) : (
           <p className="mt-3 text-muted">No champion picked yet.</p>
         )}
-        <div className="mt-4 flex flex-wrap justify-center gap-2">
-          {state.finalists.map((id) => {
-            const t = teamsById.get(id);
-            return t ? (
-              <span
-                key={id}
-                className="rounded-full border border-white/10 px-3 py-1 text-sm"
-              >
-                {t.flag} {t.code}
-              </span>
-            ) : null;
-          })}
+        <div className="mt-5 grid grid-cols-3 gap-2">
+          {podium.map(({ medal, label, team }) => (
+            <div
+              key={label}
+              className="rounded-2xl border border-white/10 bg-ink-600/40 px-2 py-3 text-center"
+            >
+              <div className="text-2xl">{medal}</div>
+              <div className="mt-1 text-2xl">{team?.flag ?? "—"}</div>
+              <div className="mt-1 truncate text-sm font-semibold">{team?.code ?? ""}</div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-faint">
+                {label}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

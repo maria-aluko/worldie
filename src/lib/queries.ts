@@ -74,10 +74,16 @@ export function summarize(picks: Pick[]) {
   const champion = picks.find((p) => p.ref === "champion")?.pickTeamId ?? null;
   const finalists = picks.filter((p) => p.ref === "reach_final").map((p) => p.pickTeamId!);
   const semis = picks.filter((p) => p.ref === "reach_sf").map((p) => p.pickTeamId!);
+  const third = picks.find((p) => p.ref === "third_place")?.pickTeamId ?? null;
   const goldenBoot = picks.find((p) => p.ref === "golden_boot")?.pickTeamId ?? null;
+  const runnerUp = finalists.find((id) => id !== champion) ?? null;
   return {
     champion,
     championTeam: champion ? TEAMS_BY_ID.get(champion) ?? null : null,
+    runnerUp,
+    runnerUpTeam: runnerUp ? TEAMS_BY_ID.get(runnerUp) ?? null : null,
+    third,
+    thirdTeam: third ? TEAMS_BY_ID.get(third) ?? null : null,
     finalists,
     finalistTeams: finalists.map((id) => TEAMS_BY_ID.get(id)).filter(Boolean),
     semis,
