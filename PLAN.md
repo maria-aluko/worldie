@@ -11,8 +11,8 @@ live leaderboards.
   - **Casual** — champion + two finalists.
   - **Standard** — full knockout bracket + champion + Golden Boot.
   - **Expert** — group-stage standings + full bracket + exact scorelines + awards.
-- **Hybrid scoring** — base points for a correct match *winner* pick, **bonus** points for a
-  correct *exact scoreline*. Deeper levels can earn more.
+- **Hybrid scoring** — base points for a correct match _winner_ pick, **bonus** points for a
+  correct _exact scoreline_. Deeper levels can earn more.
 - **Live scoring** — real results ingested automatically; entries re-scored; live leaderboards.
 - **Share** — beautiful per-entry card with dynamic OG image; WhatsApp / X / Facebook /
   Instagram / TikTok / native share.
