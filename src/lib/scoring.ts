@@ -15,6 +15,7 @@ export const SCORING = {
   // Advancement: points for correctly sending a team to each stage.
   reach: {
     reach_r32: 2,
+    reach_r32_third: 2,
     reach_r16: 4,
     reach_qf: 7,
     reach_sf: 12,
@@ -95,7 +96,9 @@ export function scorePicks(
   for (const p of picks) {
     // Advancement picks.
     if (p.ref in SCORING.reach) {
-      const ok = p.pickTeamId ? reached[p.ref]?.has(p.pickTeamId) : false;
+      // best-third picks are scored against the same reached set as top-2 qualifiers
+      const reachKey = p.ref === "reach_r32_third" ? "reach_r32" : p.ref;
+      const ok = p.pickTeamId ? reached[reachKey]?.has(p.pickTeamId) : false;
       const value = SCORING.reach[p.ref];
       out.push({
         ref: p.ref,

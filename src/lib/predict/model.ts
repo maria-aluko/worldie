@@ -5,6 +5,8 @@ export interface PredictionState {
   groupTop2: Record<string, string[]>;
   /** Expert: match id -> predicted score. */
   groupScores: Record<string, { h: number; a: number }>;
+  /** The 8 best third-placed teams that also qualify for the Round of 32. */
+  thirdPlace: string[];
   reach_r16: string[];
   reach_qf: string[];
   reach_sf: string[];
@@ -17,6 +19,7 @@ export function emptyState(): PredictionState {
   return {
     groupTop2: {},
     groupScores: {},
+    thirdPlace: [],
     reach_r16: [],
     reach_qf: [],
     reach_sf: [],
@@ -71,8 +74,8 @@ export function deriveStandings(
   );
 }
 
-/** The 24 group qualifiers given the current state. */
-export function qualifiers(
+/** The 24 top-2 group qualifiers (before adding the 8 best-third picks). */
+function top2Qualifiers(
   level: Level,
   state: PredictionState,
   teams: Team[],
@@ -89,8 +92,44 @@ export function qualifiers(
     }
     return out;
   }
-  // standard: explicitly chosen top 2 per group
   return Object.values(state.groupTop2).flat();
+}
+
+/** All 32 Round-of-32 qualifiers: 24 top-2 + 8 best-third-placed. */
+export function qualifiers(
+  level: Level,
+  state: PredictionState,
+  teams: Team[],
+  matches: Match[],
+): string[] {
+  return [...top2Qualifiers(level, state, teams, matches), ...state.thirdPlace];
+}
+
+/** Candidate pool for the 8 best-third-placed picks.
+ *  Expert: 12 derived 3rd-place teams.
+ *  Standard: all 24 teams not chosen as top 2 (3rd + 4th per group). */
+export function thirdPlaceCandidates(
+  level: Level,
+  state: PredictionState,
+  teams: Team[],
+  matches: Match[],
+): string[] {
+  if (level === "expert") {
+    const groups = [...new Set(teams.map((t) => t.group).filter(Boolean))] as string[];
+    const out: string[] = [];
+    for (const g of groups.sort()) {
+      const gTeams = teams.filter((t) => t.group === g);
+      const gMatches = matches.filter((m) => m.group === g);
+      const table = deriveStandings(gTeams, gMatches, state.groupScores);
+      if (table[2]) out.push(table[2].teamId);
+    }
+    return out;
+  }
+  const picked = new Set(Object.values(state.groupTop2).flat());
+  return teams
+    .filter((t) => t.group && !picked.has(t.id))
+    .sort((a, b) => (a.group ?? "").localeCompare(b.group ?? "") || a.name.localeCompare(b.name))
+    .map((t) => t.id);
 }
 
 /** Flatten the working state into DB-ready picks. */
@@ -104,8 +143,9 @@ export function flattenToPicks(
   const add = (ref: string, teamId: string | null) =>
     picks.push({ ref, pickTeamId: teamId, predHome: null, predAway: null });
 
-  // standard + expert
-  qualifiers(level, state, teams, matches).forEach((id) => add("reach_r32", id));
+  // standard + expert: top-2 → reach_r32, 8 best-third → reach_r32_third
+  top2Qualifiers(level, state, teams, matches).forEach((id) => add("reach_r32", id));
+  state.thirdPlace.forEach((id) => add("reach_r32_third", id));
   state.reach_r16.forEach((id) => add("reach_r16", id));
   state.reach_qf.forEach((id) => add("reach_qf", id));
   state.reach_sf.forEach((id) => add("reach_sf", id));
@@ -141,6 +181,9 @@ export function unflattenPicks(
           const g = groupOf.get(p.pickTeamId);
           if (g) (state.groupTop2[g] ??= []).push(p.pickTeamId);
         }
+        break;
+      case "reach_r32_third":
+        if (p.pickTeamId) state.thirdPlace.push(p.pickTeamId);
         break;
       case "reach_r16":
         if (p.pickTeamId) state.reach_r16.push(p.pickTeamId);

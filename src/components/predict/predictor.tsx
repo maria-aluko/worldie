@@ -13,6 +13,7 @@ import {
   emptyState,
   flattenToPicks,
   qualifiers,
+  thirdPlaceCandidates,
   type PredictionState,
 } from "@/lib/predict/model";
 import { SelectN } from "./steps/select-n";
@@ -89,6 +90,7 @@ export function Predictor({
     });
 
   const quals = qualifiers(level, state, teams, matches);
+  const thirdCandidates = thirdPlaceCandidates(level, state, teams, matches);
 
   const steps: Step[] = useMemo(() => {
     const meta = LEVELS[level];
@@ -134,9 +136,23 @@ export function Predictor({
       }
 
       list.push({
+        key: "third",
+        title: "Best third-placed teams",
+        subtitle: "8 of the 12 third-placed teams also qualify. Which ones make it?",
+        valid: state.thirdPlace.length === 8,
+        node: (
+          <SelectN
+            teams={pick(thirdCandidates)}
+            selected={state.thirdPlace}
+            max={8}
+            onToggle={(id) => toggleIn("thirdPlace", id, 8)}
+          />
+        ),
+      });
+      list.push({
         key: "r16",
-        title: "Round of 16",
-        subtitle: "Send 16 of your 24 qualifiers through.",
+        title: "Round of 32",
+        subtitle: "16 of your 32 qualifiers advance. Who survives?",
         valid: state.reach_r16.length === 16,
         node: (
           <SelectN
