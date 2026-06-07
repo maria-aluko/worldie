@@ -1,6 +1,6 @@
 # Worldie ⚽ Prediction Game
 
-Live link `https://worldie-lac.vercel.app/`
+Live link [https://worldie-lac.vercel.app/](https://worldie-lac.vercel.app/)
 
 A gamified web app to predict the 2026 FIFA World Cup, share your picks
 everywhere, compare against the crowd, and battle friends on a live leaderboard.
