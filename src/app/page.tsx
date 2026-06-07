@@ -59,10 +59,11 @@ export default function Home() {
         <section className="mx-auto max-w-6xl px-5 py-10">
           <div className="mb-8 text-center">
             <h2 className="font-display text-4xl font-extrabold sm:text-5xl">
-              Three ways to play
+              Two ways to play
             </h2>
             <p className="mx-auto mt-3 max-w-md text-muted">
-              Choose how far down the rabbit hole you go. More depth, more points.
+              Choose how far down the rabbit hole you go. More depth, more
+              points.
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
@@ -97,7 +98,9 @@ export default function Home() {
                   </ul>
                   <span className="mt-6 inline-flex items-center gap-1 font-display text-sm font-bold uppercase tracking-wide">
                     Play {lv.name}
-                    <span className="transition-transform group-hover:translate-x-1">→</span>
+                    <span className="transition-transform group-hover:translate-x-1">
+                      →
+                    </span>
                   </span>
                 </Link>
               );
