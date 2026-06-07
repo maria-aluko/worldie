@@ -55,7 +55,7 @@ export async function createGroup(
     const entryId = parsed.data.entryId ?? (await latestEntryId(userId));
     await db
       .insert(schema.groupMembers)
-      .values({ groupId: g.id, userId, entryId })
+      .values({ groupId: g.id, userId, ...(entryId !== null ? { entryId } : {}) })
       .onConflictDoNothing();
 
     return { ok: true, slug };
@@ -94,7 +94,7 @@ export async function joinGroup(
           and(eq(schema.groupMembers.groupId, g.id), eq(schema.groupMembers.userId, userId)),
         );
     } else {
-      await db.insert(schema.groupMembers).values({ groupId: g.id, userId, entryId });
+      await db.insert(schema.groupMembers).values({ groupId: g.id, userId, ...(entryId !== null ? { entryId } : {}) });
     }
     return { ok: true };
   } catch (err) {
