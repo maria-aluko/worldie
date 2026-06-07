@@ -39,16 +39,22 @@ export function Predictor({
   teams,
   matches,
   groupContext,
+  initialState,
+  initialName,
+  editing = false,
 }: {
   level: Level;
   teams: Team[];
   matches: Match[];
   groupContext?: GroupContext;
+  initialState?: PredictionState;
+  initialName?: string;
+  editing?: boolean;
 }) {
   const router = useRouter();
-  const [state, setState] = useState<PredictionState>(emptyState);
+  const [state, setState] = useState<PredictionState>(() => initialState ?? emptyState());
   const [index, setIndex] = useState(0);
-  const [name, setName] = useState("");
+  const [name, setName] = useState(initialName ?? "");
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -238,7 +244,9 @@ export function Predictor({
       ? "Create group →"
       : groupContext?.mode === "join"
         ? "Join group →"
-        : "Get my card →";
+        : editing
+          ? "Save changes →"
+          : "Get my card →";
 
   function next() {
     setError(null);

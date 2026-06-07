@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import type { Metadata } from "next";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { CopyInvite } from "@/components/groups/group-actions";
-import { getGroupBySlug } from "@/lib/queries";
+import { JoinWithEntry } from "@/components/groups/join-with-entry";
+import { getGroupBySlug, getMyEntry, summarize } from "@/lib/queries";
 import { getUserIdFromCookie } from "@/lib/identity";
 import { TEAMS_BY_ID } from "@/lib/data/teams";
 import { LEVELS } from "@/lib/constants";
@@ -27,6 +29,12 @@ export default async function GroupPage({
   const isMember = userId ? group.members.some((m) => m.userId === userId) : false;
   const inviteUrl = `${siteUrl}/g/${group.inviteSlug}`;
   const anyScores = group.members.some((m) => m.points > 0);
+
+  // A non-member who already predicted at this level can join in one tap.
+  const myEntry =
+    userId && !isMember ? await getMyEntry(userId, group.level).catch(() => null) : null;
+  const myChampion = myEntry ? summarize(myEntry.picks).championTeam : null;
+  const myChampionLabel = myChampion ? `🏆 ${myChampion.code}` : null;
 
   return (
     <>
@@ -53,13 +61,38 @@ export default async function GroupPage({
         {!isMember && (
           <div className="mb-8 rounded-3xl border border-lime/20 bg-ink-600/60 p-6">
             <h2 className="font-display text-xl font-bold">Join this group</h2>
-            <p className="mb-4 mt-1 text-sm text-muted">
-              This group plays {LEVELS[group.level].name}. Make your prediction to
-              take your spot on the leaderboard.
-            </p>
-            <Button href={`/predict/${group.level}?join=${group.inviteSlug}`}>
-              Make your prediction to join →
-            </Button>
+            {myEntry ? (
+              <>
+                <p className="mb-4 mt-1 text-sm text-muted">
+                  This group plays {LEVELS[group.level].name}. Join with the{" "}
+                  {LEVELS[group.level].name} prediction you&apos;ve already made — no
+                  need to start over.
+                </p>
+                <JoinWithEntry
+                  inviteCode={group.inviteSlug}
+                  entryId={myEntry.entry.id}
+                  championLabel={myChampionLabel}
+                />
+                <p className="mt-3 text-sm text-faint">
+                  <Link
+                    href={`/predict/${group.level}?join=${group.inviteSlug}`}
+                    className="text-lime hover:underline"
+                  >
+                    Edit your prediction first →
+                  </Link>
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="mb-4 mt-1 text-sm text-muted">
+                  This group plays {LEVELS[group.level].name}. Make your prediction to
+                  take your spot on the leaderboard.
+                </p>
+                <Button href={`/predict/${group.level}?join=${group.inviteSlug}`}>
+                  Make your prediction to join →
+                </Button>
+              </>
+            )}
           </div>
         )}
 

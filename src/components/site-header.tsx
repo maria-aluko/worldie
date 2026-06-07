@@ -13,6 +13,9 @@ export function SiteHeader() {
           <Button href="/groups" variant="ghost" size="sm">
             Groups
           </Button>
+          <Button href="/me" variant="ghost" size="sm">
+            My stuff
+          </Button>
           <Button href="/predict" size="sm" className="hidden sm:inline-flex">
             Play
           </Button>

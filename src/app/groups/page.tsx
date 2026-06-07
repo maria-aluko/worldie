@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { CreateGroupForm } from "@/components/groups/create-group-form";
 import { JoinGroupForm } from "@/components/groups/join-group-form";
@@ -30,9 +31,20 @@ export default function GroupsHome() {
           </section>
           <section className="rounded-3xl border border-white/10 bg-ink-600/40 p-6">
             <h2 className="mb-4 font-display text-xl font-bold">Join with a code</h2>
+            <p className="mb-4 text-sm text-muted">
+              Enter a friend&apos;s invite code. If you&apos;ve already predicted at
+              the group&apos;s level, you can join in one tap.
+            </p>
             <JoinGroupForm />
           </section>
         </div>
+
+        <p className="mt-8 text-center text-sm text-faint">
+          Already in some groups?{" "}
+          <Link href="/me" className="text-lime hover:underline">
+            See them in My stuff →
+          </Link>
+        </p>
       </main>
     </>
   );

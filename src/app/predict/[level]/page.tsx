@@ -4,7 +4,9 @@ import { Predictor, type GroupContext } from "@/components/predict/predictor";
 import { TEAMS } from "@/lib/data/teams";
 import { buildGroupFixtures } from "@/lib/data/fixtures";
 import { LEVELS } from "@/lib/constants";
-import { getGroupBySlug } from "@/lib/queries";
+import { getGroupBySlug, getMyEntry } from "@/lib/queries";
+import { getUserIdFromCookie } from "@/lib/identity";
+import { unflattenPicks } from "@/lib/predict/model";
 import type { Level } from "@/lib/types";
 
 const VALID: Level[] = ["standard", "expert"];
@@ -53,12 +55,24 @@ export default async function PredictLevelPage({
   const teams = TEAMS;
   const matches = buildGroupFixtures();
 
+  // If the player already has an entry at this level, prefill it so the form
+  // edits in place rather than starting from scratch.
+  const userId = await getUserIdFromCookie();
+  const existing = userId ? await getMyEntry(userId, level as Level).catch(() => null) : null;
+  const initialState = existing
+    ? unflattenPicks(level as Level, existing.picks, teams, matches)
+    : undefined;
+  const initialName = existing?.entry.displayName ?? undefined;
+
   return (
     <Predictor
       level={level as Level}
       teams={teams}
       matches={matches}
       groupContext={groupContext}
+      initialState={initialState}
+      initialName={initialName}
+      editing={!!existing}
     />
   );
 }

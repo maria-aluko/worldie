@@ -81,6 +81,13 @@ export default async function EntryPage({
           </Button>
         </div>
 
+        <p className="mt-4 text-center text-sm text-faint">
+          Got an invite code?{" "}
+          <Link href="/groups" className="text-lime hover:underline">
+            Join a friend&apos;s group →
+          </Link>
+        </p>
+
         <p className="mt-6 text-center text-sm text-faint">
           Want a different take?{" "}
           <Link href="/predict" className="text-lime hover:underline">

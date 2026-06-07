@@ -120,3 +120,51 @@ export function flattenToPicks(
   }
   return picks;
 }
+
+/** Rebuild working state from stored picks — used to prefill the editor. */
+export function unflattenPicks(
+  level: Level,
+  picks: Pick[],
+  teams: Team[],
+  matches: Match[],
+): PredictionState {
+  const state = emptyState();
+  const groupOf = new Map(teams.map((t) => [t.id, t.group]));
+  const matchIds = new Set(matches.map((m) => m.id));
+
+  for (const p of picks) {
+    switch (p.ref) {
+      case "reach_r32":
+        // Standard players choose group qualifiers directly; expert derives them
+        // from scorelines, so only rehydrate groupTop2 for standard.
+        if (level === "standard" && p.pickTeamId) {
+          const g = groupOf.get(p.pickTeamId);
+          if (g) (state.groupTop2[g] ??= []).push(p.pickTeamId);
+        }
+        break;
+      case "reach_r16":
+        if (p.pickTeamId) state.reach_r16.push(p.pickTeamId);
+        break;
+      case "reach_qf":
+        if (p.pickTeamId) state.reach_qf.push(p.pickTeamId);
+        break;
+      case "reach_sf":
+        if (p.pickTeamId) state.reach_sf.push(p.pickTeamId);
+        break;
+      case "reach_final":
+        if (p.pickTeamId) state.finalists.push(p.pickTeamId);
+        break;
+      case "champion":
+        state.champion = p.pickTeamId ?? null;
+        break;
+      case "golden_boot":
+        state.goldenBoot = p.pickTeamId ?? null;
+        break;
+      default:
+        if (matchIds.has(p.ref) && p.predHome != null && p.predAway != null) {
+          state.groupScores[p.ref] = { h: p.predHome, a: p.predAway };
+        }
+    }
+  }
+  return state;
+}
