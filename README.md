@@ -50,6 +50,10 @@ curl -H "Authorization: Bearer <CRON_SECRET>" http://localhost:3000/api/cron/res
 
 Scoring rules live in `src/lib/scoring.ts` and are tunable in one place.
 
+## License
+
+Copyright (c) 2026 Maria Aluko. All rights reserved. See [`LICENSE`](./LICENSE) for details.
+
 ## Notes / next steps
 
 - Multi-language support
