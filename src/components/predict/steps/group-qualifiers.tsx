@@ -22,13 +22,17 @@ export function GroupQualifiers({
   teamsByGroup,
   value,
   onChange,
+  lockedGroups,
 }: {
   groups: string[];
   teamsByGroup: Record<string, Team[]>;
   value: Record<string, string[]>;
   onChange: (group: string, ids: string[]) => void;
+  /** Groups whose first match has kicked off — ranking is read-only. */
+  lockedGroups?: Set<string>;
 }) {
   function toggle(group: string, id: string) {
+    if (lockedGroups?.has(group)) return;
     const cur = value[group] ?? [];
     let next: string[];
     if (cur.includes(id)) {
@@ -51,20 +55,29 @@ export function GroupQualifiers({
       {groups.map((g) => {
         const order = value[g] ?? [];
         const done = order.length === 4;
+        const locked = lockedGroups?.has(g) ?? false;
         return (
-          <div key={g} className="rounded-3xl border border-white/10 bg-ink-600/40 p-4">
+          <div
+            key={g}
+            className={cn(
+              "rounded-3xl border border-white/10 bg-ink-600/40 p-4",
+              locked && "opacity-60",
+            )}
+          >
             <div className="mb-1 flex items-center justify-between">
               <h3 className="font-display text-lg font-bold">Group {g}</h3>
               <span
                 className={cn(
                   "text-xs font-semibold uppercase tracking-wide",
-                  done ? "text-lime" : "text-faint",
+                  locked ? "text-faint" : done ? "text-lime" : "text-faint",
                 )}
               >
-                {done ? "Done" : `${order.length}/4`}
+                {locked ? "🔒 Kicked off" : done ? "Done" : `${order.length}/4`}
               </span>
             </div>
-            <p className="mb-3 text-xs text-faint">Tap to rank 1 → 4.</p>
+            <p className="mb-3 text-xs text-faint">
+              {locked ? "This group has started — ranking is locked." : "Tap to rank 1 → 4."}
+            </p>
 
             <div className="space-y-2">
               {teamsByGroup[g].map((t) => {
@@ -74,8 +87,9 @@ export function GroupQualifiers({
                   <motion.button
                     key={t.id}
                     type="button"
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => toggle(g, t.id)}
+                    disabled={locked}
+                    whileTap={locked ? undefined : { scale: 0.97 }}
+                    onClick={locked ? undefined : () => toggle(g, t.id)}
                     className={cn(
                       "flex h-12 w-full items-center gap-3 rounded-xl border px-3 text-left transition-colors",
                       slot

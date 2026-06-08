@@ -9,11 +9,14 @@ export function SelectN({
   selected,
   max,
   onToggle,
+  locked = false,
 }: {
   teams: Team[];
   selected: string[];
   max: number;
   onToggle: (id: string) => void;
+  /** This round has kicked off — show the picks read-only. */
+  locked?: boolean;
 }) {
   const full = selected.length >= max;
   return (
@@ -25,8 +28,8 @@ export function SelectN({
             key={t.id}
             team={t}
             selected={isSel}
-            disabled={full && !isSel}
-            onClick={() => onToggle(t.id)}
+            disabled={locked || (full && !isSel)}
+            onClick={locked ? undefined : () => onToggle(t.id)}
           />
         );
       })}

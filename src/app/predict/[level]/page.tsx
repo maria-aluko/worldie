@@ -6,6 +6,8 @@ import { buildGroupFixtures } from "@/lib/data/fixtures";
 import { LEVELS } from "@/lib/constants";
 import { getGroupBySlug, getMyEntry } from "@/lib/queries";
 import { getUserIdFromCookie } from "@/lib/identity";
+import { loadMatches } from "@/lib/actions/score";
+import { nowMs } from "@/lib/now";
 import { unflattenPicks } from "@/lib/predict/model";
 import type { Level } from "@/lib/types";
 
@@ -55,6 +57,12 @@ export default async function PredictLevelPage({
   const teams = TEAMS;
   const matches = buildGroupFixtures();
 
+  // Authoritative kickoffs/results (group fixtures are seeded; knockout matches
+  // arrive from the feed) drive the rolling per-event lock. `now` is fixed on
+  // the server so the client renders the same lock state (no hydration drift).
+  const lockMatches = await loadMatches().catch(() => []);
+  const now = nowMs();
+
   // If the player already has an entry at this level, prefill it so the form
   // edits in place rather than starting from scratch.
   const userId = await getUserIdFromCookie();
@@ -69,6 +77,8 @@ export default async function PredictLevelPage({
       level={level as Level}
       teams={teams}
       matches={matches}
+      lockMatches={lockMatches}
+      now={now}
       groupContext={groupContext}
       initialState={initialState}
       initialName={initialName}

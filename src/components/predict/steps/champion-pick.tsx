@@ -14,11 +14,14 @@ export function ChampionPick({
   value,
   onSelect,
   tone = "gold",
+  locked = false,
 }: {
   candidates: Team[];
   value: string | null;
   onSelect: (id: string) => void;
   tone?: "gold" | "bronze";
+  /** This match has kicked off — show the pick read-only. */
+  locked?: boolean;
 }) {
   const t = TONES[tone];
   return (
@@ -29,11 +32,13 @@ export function ChampionPick({
           <motion.button
             key={team.id}
             type="button"
-            whileTap={{ scale: 0.97 }}
-            onClick={() => onSelect(team.id)}
+            disabled={locked && !sel}
+            whileTap={locked ? undefined : { scale: 0.97 }}
+            onClick={locked ? undefined : () => onSelect(team.id)}
             className={cn(
               "relative flex flex-col items-center gap-3 overflow-hidden rounded-3xl border p-8 transition-all",
               sel ? t.selected : "border-white/10 bg-ink-600/60 hover:border-white/25",
+              locked && !sel && "cursor-not-allowed opacity-35",
             )}
           >
             {sel && <span className="absolute right-4 top-4 text-2xl">{t.emoji}</span>}

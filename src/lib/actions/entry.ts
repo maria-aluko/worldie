@@ -5,6 +5,9 @@ import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { ensureUser } from "@/lib/identity";
 import { entrySlug } from "@/lib/slug";
+import { loadMatches, loadTeams } from "@/lib/actions/score";
+import { applyPickLocks } from "@/lib/predict/locks";
+import type { Pick } from "@/lib/types";
 
 const pickSchema = z.object({
   ref: z.string().min(1).max(64),
@@ -44,6 +47,15 @@ export async function createEntry(raw: SubmitInput): Promise<SubmitResult> {
   try {
     const userId = await ensureUser();
 
+    // Rolling deadlines: a pick is locked once the match/round that decides it
+    // has kicked off. `applyPickLocks` preserves the player's already-locked
+    // picks and refuses any locked picks in the submission — the real guard (the
+    // UI just mirrors it). Because late writes are refused, scoring needs no
+    // special-casing: a pick that isn't stored scores 0.
+    const matches = await loadMatches();
+    const teamsById = new Map((await loadTeams()).map((t) => [t.id, t]));
+    const now = Date.now();
+
     // Re-use the player's existing entry at this level if there is one.
     const [existing] = await db
       .select({ id: schema.entries.id, slug: schema.entries.slug })
@@ -53,6 +65,8 @@ export async function createEntry(raw: SubmitInput): Promise<SubmitResult> {
 
     let entryId: string;
     let slug: string;
+    let existingPicks: Pick[] = [];
+
     if (existing) {
       entryId = existing.id;
       slug = existing.slug;
@@ -60,7 +74,18 @@ export async function createEntry(raw: SubmitInput): Promise<SubmitResult> {
         .update(schema.entries)
         .set({ displayName: displayName || null })
         .where(eq(schema.entries.id, entryId));
-      // Replace picks wholesale — simplest correct way to apply edits.
+
+      const existingRows = await db
+        .select()
+        .from(schema.entryPicks)
+        .where(eq(schema.entryPicks.entryId, entryId));
+      existingPicks = existingRows.map((p) => ({
+        ref: p.ref,
+        pickTeamId: p.pickTeamId,
+        predHome: p.predHome,
+        predAway: p.predAway,
+      }));
+
       await db.delete(schema.entryPicks).where(eq(schema.entryPicks.entryId, entryId));
     } else {
       slug = entrySlug();
@@ -71,7 +96,9 @@ export async function createEntry(raw: SubmitInput): Promise<SubmitResult> {
       entryId = entry.id;
     }
 
-    const rows = picks.map((p) => ({
+    const finalPicks = applyPickLocks(existingPicks, picks, matches, teamsById, now);
+
+    const rows = finalPicks.map((p) => ({
       entryId,
       ref: p.ref,
       pickTeamId: p.pickTeamId ?? null,

@@ -15,6 +15,7 @@ export function GroupScores({
   value,
   luckyLosers,
   onSet,
+  lockedMatches,
 }: {
   groups: string[];
   teamsByGroup: Record<string, Team[]>;
@@ -24,6 +25,8 @@ export function GroupScores({
   /** Team ids of the 8 best 3rd-placed teams the scorelines imply qualify. */
   luckyLosers: Set<string>;
   onSet: (matchId: string, score: { h: number; a: number }) => void;
+  /** Match ids that have kicked off — their scoreline is read-only. */
+  lockedMatches?: Set<string>;
 }) {
   return (
     <div className="grid gap-5 lg:grid-cols-2">
@@ -39,10 +42,14 @@ export function GroupScores({
                 const away = teamsById.get(m.awayTeamId!)!;
                 const s = value[m.id] ?? { h: 0, a: 0 };
                 const set = value[m.id] != null;
+                const locked = lockedMatches?.has(m.id) ?? false;
                 return (
                   <div
                     key={m.id}
-                    className="flex items-center justify-between gap-2 rounded-xl bg-ink/50 px-2 py-1.5"
+                    className={cn(
+                      "flex items-center justify-between gap-2 rounded-xl bg-ink/50 px-2 py-1.5",
+                      locked && "opacity-60",
+                    )}
                   >
                     <span className="flex w-[38%] items-center justify-end gap-1.5 truncate text-sm">
                       <span className="truncate">{home.code}</span>
@@ -51,12 +58,14 @@ export function GroupScores({
                     <Stepper
                       value={s.h}
                       dim={!set}
+                      locked={locked}
                       onChange={(h) => onSet(m.id, { h, a: s.a })}
                     />
-                    <span className="text-faint">:</span>
+                    <span className="text-faint">{locked ? "🔒" : ":"}</span>
                     <Stepper
                       value={s.a}
                       dim={!set}
+                      locked={locked}
                       onChange={(a) => onSet(m.id, { h: s.h, a })}
                     />
                     <span className="flex w-[38%] items-center gap-1.5 truncate text-sm">
@@ -108,12 +117,26 @@ export function GroupScores({
 function Stepper({
   value,
   dim,
+  locked = false,
   onChange,
 }: {
   value: number;
   dim?: boolean;
+  locked?: boolean;
   onChange: (n: number) => void;
 }) {
+  if (locked) {
+    return (
+      <span
+        className={cn(
+          "w-5 text-center font-display text-lg font-bold tabular-nums",
+          dim && "text-faint",
+        )}
+      >
+        {value}
+      </span>
+    );
+  }
   return (
     <div className="flex items-center gap-1">
       <button

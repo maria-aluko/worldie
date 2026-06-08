@@ -18,6 +18,7 @@ import {
   thirdPlaceCandidates,
   type PredictionState,
 } from "@/lib/predict/model";
+import { isPickLocked } from "@/lib/predict/locks";
 import { SelectN } from "./steps/select-n";
 import { GroupQualifiers } from "./steps/group-qualifiers";
 import { GroupScores } from "./steps/group-scores";
@@ -41,6 +42,8 @@ export function Predictor({
   level,
   teams,
   matches,
+  lockMatches,
+  now,
   groupContext,
   initialState,
   initialName,
@@ -49,6 +52,10 @@ export function Predictor({
   level: Level;
   teams: Team[];
   matches: Match[];
+  /** Authoritative matches (with real kickoffs/results) driving the rolling lock. */
+  lockMatches: Match[];
+  /** Server timestamp so lock state renders identically on server and client. */
+  now: number;
   groupContext?: GroupContext;
   initialState?: PredictionState;
   initialName?: string;
@@ -76,6 +83,38 @@ export function Predictor({
     for (const g of groups) m[g] = matches.filter((mt) => mt.group === g);
     return m;
   }, [groups, matches]);
+
+  // Rolling lock state, computed from the authoritative matches. A pick is
+  // locked once the match/round that decides it has kicked off; locked picks are
+  // read-only and excluded from this step's validity so a late entrant who can no
+  // longer fill them can still move on.
+  const refLocked = useMemo(
+    () =>
+      (ref: string, teamId: string | null = null) =>
+        isPickLocked(ref, teamId, lockMatches, teamsById, now),
+    [lockMatches, teamsById, now],
+  );
+  const lockedGroups = useMemo(
+    () => new Set(groups.filter((g) => refLocked(`group_pos:${g}:1`))),
+    [groups, refLocked],
+  );
+  const lockedMatchIds = useMemo(
+    () => new Set(matches.filter((m) => refLocked(m.id)).map((m) => m.id)),
+    [matches, refLocked],
+  );
+  const stageLocked = useMemo(
+    () => ({
+      third: refLocked("reach_r32_third"),
+      r16: refLocked("reach_r16"),
+      qf: refLocked("reach_qf"),
+      sf: refLocked("reach_sf"),
+      final: refLocked("reach_final"),
+      champion: refLocked("champion"),
+      bronze: refLocked("third_place"),
+      golden: refLocked("golden_boot"),
+    }),
+    [refLocked],
+  );
 
   const pick = (ids: string[]) => ids.map((id) => teamsById.get(id)!).filter(Boolean);
 
@@ -105,12 +144,15 @@ export function Predictor({
           key: "groups",
           title: "Who escapes the groups?",
           subtitle: "Rank all four teams in every group, 1 → 4.",
-          valid: groups.every((g) => (state.groupRanks[g]?.length ?? 0) === 4),
+          valid: groups.every(
+            (g) => lockedGroups.has(g) || (state.groupRanks[g]?.length ?? 0) === 4,
+          ),
           node: (
             <GroupQualifiers
               groups={groups}
               teamsByGroup={teamsByGroup}
               value={state.groupRanks}
+              lockedGroups={lockedGroups}
               onChange={(g, ids) =>
                 setState((s) => ({ ...s, groupRanks: { ...s.groupRanks, [g]: ids } }))
               }
@@ -122,7 +164,9 @@ export function Predictor({
           key: "scores",
           title: "Predict every group score",
           subtitle: "Tables update live — top 2 plus the 8 best 3rd-placed teams advance.",
-          valid: Object.keys(state.groupScores).length >= matches.length,
+          valid: matches.every(
+            (m) => lockedMatchIds.has(m.id) || state.groupScores[m.id] != null,
+          ),
           node: (
             <GroupScores
               groups={groups}
@@ -131,6 +175,7 @@ export function Predictor({
               teamsById={teamsById}
               value={state.groupScores}
               luckyLosers={new Set(effectiveThirdPlace("expert", state, teams, matches))}
+              lockedMatches={lockedMatchIds}
               onSet={(id, score) =>
                 setState((s) => ({ ...s, groupScores: { ...s.groupScores, [id]: score } }))
               }
@@ -146,12 +191,13 @@ export function Predictor({
           key: "third",
           title: "Best third-placed teams",
           subtitle: "8 of your 12 third-placed teams also qualify. Which ones make it?",
-          valid: state.thirdPlace.length === 8,
+          valid: stageLocked.third || state.thirdPlace.length === 8,
           node: (
             <SelectN
               teams={pick(thirdCandidates)}
               selected={state.thirdPlace}
               max={8}
+              locked={stageLocked.third}
               onToggle={(id) => toggleIn("thirdPlace", id, 8)}
             />
           ),
@@ -161,12 +207,13 @@ export function Predictor({
         key: "r16",
         title: "Round of 32",
         subtitle: "16 of your 32 qualifiers advance. Who survives?",
-        valid: state.reach_r16.length === 16,
+        valid: stageLocked.r16 || state.reach_r16.length === 16,
         node: (
           <SelectN
             teams={pick(quals)}
             selected={state.reach_r16}
             max={16}
+            locked={stageLocked.r16}
             onToggle={(id) => toggleIn("reach_r16", id, 16)}
           />
         ),
@@ -175,12 +222,13 @@ export function Predictor({
         key: "qf",
         title: "Quarter-finals",
         subtitle: "Pick the 8 still standing.",
-        valid: state.reach_qf.length === 8,
+        valid: stageLocked.qf || state.reach_qf.length === 8,
         node: (
           <SelectN
             teams={pick(state.reach_r16)}
             selected={state.reach_qf}
             max={8}
+            locked={stageLocked.qf}
             onToggle={(id) => toggleIn("reach_qf", id, 8)}
           />
         ),
@@ -189,12 +237,13 @@ export function Predictor({
         key: "sf",
         title: "Semi-finals",
         subtitle: "Your final four.",
-        valid: state.reach_sf.length === 4,
+        valid: stageLocked.sf || state.reach_sf.length === 4,
         node: (
           <SelectN
             teams={pick(state.reach_qf)}
             selected={state.reach_sf}
             max={4}
+            locked={stageLocked.sf}
             onToggle={(id) => toggleIn("reach_sf", id, 4)}
           />
         ),
@@ -203,12 +252,13 @@ export function Predictor({
         key: "final",
         title: "The Final",
         subtitle: "Two teams left. Who makes it?",
-        valid: state.finalists.length === 2,
+        valid: stageLocked.final || state.finalists.length === 2,
         node: (
           <SelectN
             teams={pick(state.reach_sf)}
             selected={state.finalists}
             max={2}
+            locked={stageLocked.final}
             onToggle={(id) => toggleIn("finalists", id, 2)}
           />
         ),
@@ -217,11 +267,12 @@ export function Predictor({
         key: "champion",
         title: "Crown your champion",
         subtitle: "The moment of truth.",
-        valid: state.champion != null,
+        valid: stageLocked.champion || state.champion != null,
         node: (
           <ChampionPick
             candidates={pick(state.finalists)}
             value={state.champion}
+            locked={stageLocked.champion}
             onSelect={(id) => setState((s) => ({ ...s, champion: id }))}
           />
         ),
@@ -230,12 +281,14 @@ export function Predictor({
         key: "bronze",
         title: "The bronze medal",
         subtitle: "Which beaten semi-finalist wins the third-place playoff?",
-        valid: state.bronze != null && bronzeCandidates.includes(state.bronze),
+        valid:
+          stageLocked.bronze || (state.bronze != null && bronzeCandidates.includes(state.bronze)),
         node: (
           <ChampionPick
             candidates={pick(bronzeCandidates)}
             value={state.bronze}
             tone="bronze"
+            locked={stageLocked.bronze}
             onSelect={(id) => setState((s) => ({ ...s, bronze: id }))}
           />
         ),
@@ -244,11 +297,12 @@ export function Predictor({
         key: "golden",
         title: "Golden Boot",
         subtitle: "Whose nation tops the scoring charts?",
-        valid: state.goldenBoot != null,
+        valid: stageLocked.golden || state.goldenBoot != null,
         node: (
           <GoldenBoot
             teams={teams}
             value={state.goldenBoot}
+            locked={stageLocked.golden}
             onSelect={(id) => setState((s) => ({ ...s, goldenBoot: id }))}
           />
         ),
@@ -272,7 +326,18 @@ export function Predictor({
 
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [level, state, name, groups, teamsByGroup, matchesByGroup, teamsById]);
+  }, [
+    level,
+    state,
+    name,
+    groups,
+    teamsByGroup,
+    matchesByGroup,
+    teamsById,
+    lockedGroups,
+    lockedMatchIds,
+    stageLocked,
+  ]);
 
   const step = steps[index];
   const isLast = index === steps.length - 1;

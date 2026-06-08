@@ -18,6 +18,14 @@ export function SiteHeader() {
             <span className="sm:hidden">Me</span>
             <span className="hidden sm:inline">My stuff</span>
           </Button>
+          <Button
+            href="/how-it-works"
+            variant="ghost"
+            size="sm"
+            className="hidden px-2 sm:inline-flex"
+          >
+            How it works
+          </Button>
           <ThemeToggle />
           <Button href="/predict" size="sm" className="hidden sm:inline-flex">
             Play

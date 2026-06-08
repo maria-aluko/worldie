@@ -53,10 +53,14 @@ export default async function EntryPage({
       <main className="mx-auto w-full max-w-md flex-1 px-5 py-10">
         <div className="mb-6 text-center">
           <h1 className="font-display text-3xl font-extrabold">
-            Your call is locked. 🔒
+            Your call is in. ✅
           </h1>
           <p className="mt-2 text-muted">
-            Share your {LEVELS[entry.level].name} prediction and see who agrees.
+            Share your {LEVELS[entry.level].name} prediction and see who agrees. You can{" "}
+            <Link href={`/predict/${entry.level}`} className="text-lime hover:underline">
+              tweak any pick
+            </Link>{" "}
+            until that match kicks off.
           </p>
         </div>
 
