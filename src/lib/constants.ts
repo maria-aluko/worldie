@@ -1,7 +1,18 @@
 import type { Level, Stage } from "./types";
 
 export const GROUP_LETTERS = [
-  "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L",
+  "A",
+  "B",
+  "C",
+  "D",
+  "E",
+  "F",
+  "G",
+  "H",
+  "I",
+  "J",
+  "K",
+  "L",
 ] as const;
 
 export const STAGE_LABEL: Record<Stage, string> = {
@@ -40,13 +51,12 @@ export const LEVELS: Record<Level, LevelMeta> = {
     id: "standard",
     name: "Standard",
     tagline: "Pick who progresses",
-    minutes: "~3 min",
-    blurb:
-      "Pick the teams that advance at every stage, all the way to the trophy.",
+    minutes: "~5 min",
+    blurb: "",
     includes: [
-      "Top 2 from all 12 groups",
-      "Full knockout bracket (R32 → Final)",
-      "Champion & Golden Boot",
+      "Rank every group 1→4",
+      "Pick 8 lucky losers",
+      "Knockout bracket, champion, bronze & Golden Boot",
     ],
     accent: "cyan",
   },
@@ -55,11 +65,11 @@ export const LEVELS: Record<Level, LevelMeta> = {
     name: "Expert",
     tagline: "Call every shot",
     minutes: "~10 min",
-    blurb: "Group tables, exact scorelines, awards — the full forecast.",
+    blurb: "",
     includes: [
-      "All 12 group tables",
-      "Full bracket with exact scorelines",
-      "Champion, Golden Boot & more awards",
+      "Exact scores for every group match",
+      "Group tables auto-computed",
+      "Knockout bracket, champion, bronze & Golden Boot",
     ],
     accent: "magenta",
   },

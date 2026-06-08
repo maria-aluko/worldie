@@ -53,7 +53,7 @@ export function CreateGroupForm() {
       {!entryId && (
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-faint">
-            Group format
+            Group level
           </p>
           <div className="grid gap-2 sm:grid-cols-2">
             {LEVEL_ORDER.map((id) => {
@@ -71,8 +71,9 @@ export function CreateGroupForm() {
                       : "border-white/10 bg-ink-600/60 hover:border-white/25",
                   )}
                 >
-                  <span className="block font-display font-bold">{lv.name}</span>
-                  <span className="block text-xs text-muted">{lv.tagline}</span>
+                  <span className="block font-display font-bold">
+                    {lv.name}
+                  </span>
                 </button>
               );
             })}
@@ -83,7 +84,11 @@ export function CreateGroupForm() {
         </div>
       )}
 
-      <Button onClick={submit} disabled={pending || !name.trim()} className="w-full">
+      <Button
+        onClick={submit}
+        disabled={pending || !name.trim()}
+        className="w-full"
+      >
         {pending
           ? "Creating…"
           : entryId
