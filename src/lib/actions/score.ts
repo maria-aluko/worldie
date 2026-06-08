@@ -1,7 +1,7 @@
 import "server-only";
 import { eq, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
-import type { Match } from "@/lib/types";
+import type { Match, Team } from "@/lib/types";
 import { scorePicks, totalPoints } from "@/lib/scoring";
 
 /** Load all matches as domain objects. */
@@ -20,12 +20,25 @@ export async function loadMatches(): Promise<Match[]> {
   }));
 }
 
+/** Load all teams as domain objects (needed for group-position scoring). */
+export async function loadTeams(): Promise<Team[]> {
+  const rows = await db.select().from(schema.teams);
+  return rows.map((t) => ({
+    id: t.id,
+    name: t.name,
+    code: t.code,
+    flag: t.flag,
+    group: t.group,
+  }));
+}
+
 /**
  * Recompute every entry's points against current results and persist
  * `entries.total_points` (and per-pick points). Idempotent.
  */
 export async function recomputeAllScores(): Promise<{ entries: number }> {
   const matches = await loadMatches();
+  const teams = await loadTeams();
 
   const entries = await db
     .select({ id: schema.entries.id })
@@ -46,6 +59,7 @@ export async function recomputeAllScores(): Promise<{ entries: number }> {
         predAway: p.predAway,
       })),
       matches,
+      teams,
     );
     const scoreByKey = new Map(scored.map((s) => [`${s.ref}|${s.pickTeamId ?? ""}`, s.points]));
 

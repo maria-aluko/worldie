@@ -1,10 +1,10 @@
 import type { Level, Match, Pick, Team } from "@/lib/types";
 
 export interface PredictionState {
-  /** Standard: group letter -> up to 2 selected team ids. */
-  groupTop2: Record<string, string[]>;
-  /** Standard: group letter -> predicted 3rd-place team id (expert derives it). */
-  groupThird: Record<string, string>;
+  /** Standard: group letter -> ordered team ids [1st, 2nd, 3rd, 4th]. The first
+   *  two advance directly, the 3rd is a lucky-loser candidate, the 4th is out.
+   *  (Expert derives the full order from groupScores.) */
+  groupRanks: Record<string, string[]>;
   /** Expert: match id -> predicted score. */
   groupScores: Record<string, { h: number; a: number }>;
   /** The 8 best third-placed teams that also qualify for the Round of 32. */
@@ -21,8 +21,7 @@ export interface PredictionState {
 
 export function emptyState(): PredictionState {
   return {
-    groupTop2: {},
-    groupThird: {},
+    groupRanks: {},
     groupScores: {},
     thirdPlace: [],
     reach_r16: [],
@@ -98,7 +97,26 @@ function top2Qualifiers(
     }
     return out;
   }
-  return Object.values(state.groupTop2).flat();
+  return Object.values(state.groupRanks).flatMap((r) => r.slice(0, 2));
+}
+
+/** Group letter -> ordered team ids [1st..4th], from manual ranks (standard) or
+ *  derived from the predicted scorelines (expert). Used for spot-position picks. */
+export function groupOrder(
+  level: Level,
+  state: PredictionState,
+  teams: Team[],
+  matches: Match[],
+): Record<string, string[]> {
+  if (level === "standard") return state.groupRanks;
+  const groups = [...new Set(teams.map((t) => t.group).filter(Boolean))] as string[];
+  const out: Record<string, string[]> = {};
+  for (const g of groups.sort()) {
+    const gTeams = teams.filter((t) => t.group === g);
+    const gMatches = matches.filter((m) => m.group === g);
+    out[g] = deriveStandings(gTeams, gMatches, state.groupScores).map((r) => r.teamId);
+  }
+  return out;
 }
 
 /** Expert: rank the 12 derived 3rd-place teams (pts → GD → GF) and auto-select
@@ -147,9 +165,11 @@ export function qualifiers(
 }
 
 /** Candidate pool for the 8 best-third-placed picks (standard only — expert
- *  auto-solves and skips the step): the 12 teams the player designated 3rd. */
+ *  auto-solves and skips the step): the 12 teams the player ranked 3rd. */
 export function thirdPlaceCandidates(state: PredictionState): string[] {
-  return Object.values(state.groupThird);
+  return Object.values(state.groupRanks)
+    .map((r) => r[2])
+    .filter(Boolean);
 }
 
 /** Flatten the working state into DB-ready picks. */
@@ -166,10 +186,12 @@ export function flattenToPicks(
   // standard + expert: top-2 → reach_r32, 8 best-third → reach_r32_third
   top2Qualifiers(level, state, teams, matches).forEach((id) => add("reach_r32", id));
   effectiveThirdPlace(level, state, teams, matches).forEach((id) => add("reach_r32_third", id));
-  // Standard: persist all 12 designated thirds so the candidate pool rehydrates
-  // on edit (only the chosen 8 above carry scoring; these extras score 0).
-  if (level === "standard") {
-    Object.values(state.groupThird).forEach((id) => add("group_third", id));
+  // Exact group-table positions (both levels): one pick per slot, scored for
+  // landing a team in its exact final position. For standard this also rehydrates
+  // the full 1→4 ranking (incl. the lucky-loser candidate pool) on edit.
+  const order = groupOrder(level, state, teams, matches);
+  for (const [g, ids] of Object.entries(order)) {
+    ids.forEach((id, i) => add(`group_pos:${g}:${i + 1}`, id));
   }
   state.reach_r16.forEach((id) => add("reach_r16", id));
   state.reach_qf.forEach((id) => add("reach_qf", id));
@@ -198,28 +220,43 @@ export function unflattenPicks(
   matches: Match[],
 ): PredictionState {
   const state = emptyState();
-  const groupOf = new Map(teams.map((t) => [t.id, t.group]));
   const matchIds = new Set(matches.map((m) => m.id));
+  const groupOf = new Map(teams.map((t) => [t.id, t.group]));
+  let sawGroupPos = false;
+  // Legacy fallback: entries saved before group_pos picks existed only carry the
+  // unordered top-2 (reach_r32) + per-group 3rd (group_third).
+  const legacyTop2: Record<string, string[]> = {};
+  const legacyThird: Record<string, string> = {};
 
   for (const p of picks) {
+    // Exact group-table positions. Standard rehydrates its full 1→4 ranking from
+    // these; expert re-derives the order from scorelines so it ignores them.
+    if (p.ref.startsWith("group_pos:")) {
+      sawGroupPos = true;
+      if (level === "standard" && p.pickTeamId) {
+        const [, g, n] = p.ref.split(":");
+        const slot = Number(n) - 1;
+        (state.groupRanks[g] ??= [])[slot] = p.pickTeamId;
+      }
+      continue;
+    }
     switch (p.ref) {
       case "reach_r32":
-        // Standard players choose group qualifiers directly; expert derives them
-        // from scorelines, so only rehydrate groupTop2 for standard.
+        // Group order is rehydrated from group_pos picks above; keep the top-2 only
+        // as a legacy fallback for entries saved before group_pos existed.
         if (level === "standard" && p.pickTeamId) {
           const g = groupOf.get(p.pickTeamId);
-          if (g) (state.groupTop2[g] ??= []).push(p.pickTeamId);
+          if (g) (legacyTop2[g] ??= []).push(p.pickTeamId);
+        }
+        break;
+      case "group_third":
+        if (level === "standard" && p.pickTeamId) {
+          const g = groupOf.get(p.pickTeamId);
+          if (g) legacyThird[g] = p.pickTeamId;
         }
         break;
       case "reach_r32_third":
         if (p.pickTeamId) state.thirdPlace.push(p.pickTeamId);
-        break;
-      case "group_third":
-        // Standard only: rebuild the per-group 3rd-place designations.
-        if (level === "standard" && p.pickTeamId) {
-          const g = groupOf.get(p.pickTeamId);
-          if (g) state.groupThird[g] = p.pickTeamId;
-        }
         break;
       case "reach_r16":
         if (p.pickTeamId) state.reach_r16.push(p.pickTeamId);
@@ -251,5 +288,19 @@ export function unflattenPicks(
         }
     }
   }
+
+  // Legacy standard entries (no group_pos): rebuild a best-effort 1→4 order as
+  // [top-2 (unordered), designated 3rd, remaining 4th].
+  if (level === "standard" && !sawGroupPos) {
+    const groups = [...new Set(teams.map((t) => t.group).filter(Boolean))] as string[];
+    for (const g of groups) {
+      const top2 = legacyTop2[g] ?? [];
+      const third = legacyThird[g];
+      if (top2.length !== 2 || !third) continue;
+      const fourth = teams.find((t) => t.group === g && ![...top2, third].includes(t.id));
+      state.groupRanks[g] = [...top2, third, ...(fourth ? [fourth.id] : [])];
+    }
+  }
+
   return state;
 }

@@ -16,6 +16,13 @@ export const metadata: Metadata = { title: "Group" };
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 
+// Single-level groups today, but mark each player's level clearly — Expert always
+// has more points on the table.
+const LEVEL_CHIP: Record<string, string> = {
+  standard: "border-cyan/40 text-cyan",
+  expert: "border-magenta/40 text-magenta",
+};
+
 export default async function GroupPage({
   params,
 }: {
@@ -124,9 +131,15 @@ export default async function GroupPage({
                   <span className="block truncate font-semibold">
                     {m.displayName || "Anonymous"} {me && <span className="text-lime">(you)</span>}
                   </span>
-                  <span className="text-xs text-faint">
-                    {m.level ? LEVELS[m.level].name : "No prediction"}
-                  </span>
+                  {m.level ? (
+                    <span
+                      className={`mt-0.5 inline-block rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${LEVEL_CHIP[m.level]}`}
+                    >
+                      {LEVELS[m.level].name}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-faint">No prediction</span>
+                  )}
                 </span>
                 <span className="text-sm">
                   {champ ? `${champ.flag} ${champ.code}` : "—"}

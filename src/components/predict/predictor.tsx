@@ -10,6 +10,7 @@ import { Wordmark } from "@/components/ui/wordmark";
 import { createEntry } from "@/lib/actions/entry";
 import { createGroup, joinGroup } from "@/lib/actions/group";
 import {
+  effectiveThirdPlace,
   emptyState,
   flattenToPicks,
   qualifiers,
@@ -102,26 +103,15 @@ export function Predictor({
         list.push({
           key: "groups",
           title: "Who escapes the groups?",
-          subtitle: "Pick the top 2 of each group, then who finishes 3rd.",
-          valid: groups.every(
-            (g) => (state.groupTop2[g]?.length ?? 0) === 2 && !!state.groupThird[g],
-          ),
+          subtitle: "Rank all four teams in every group, 1 → 4.",
+          valid: groups.every((g) => (state.groupRanks[g]?.length ?? 0) === 4),
           node: (
             <GroupQualifiers
               groups={groups}
               teamsByGroup={teamsByGroup}
-              value={state.groupTop2}
-              third={state.groupThird}
+              value={state.groupRanks}
               onChange={(g, ids) =>
-                setState((s) => ({ ...s, groupTop2: { ...s.groupTop2, [g]: ids } }))
-              }
-              onThird={(g, id) =>
-                setState((s) => {
-                  const next = { ...s.groupThird };
-                  if (id) next[g] = id;
-                  else delete next[g];
-                  return { ...s, groupThird: next };
-                })
+                setState((s) => ({ ...s, groupRanks: { ...s.groupRanks, [g]: ids } }))
               }
             />
           ),
@@ -130,7 +120,7 @@ export function Predictor({
         list.push({
           key: "scores",
           title: "Predict every group score",
-          subtitle: "Tables update live — top 2 of each group advance.",
+          subtitle: "Tables update live — top 2 plus the 8 best 3rd-placed teams advance.",
           valid: Object.keys(state.groupScores).length >= matches.length,
           node: (
             <GroupScores
@@ -139,6 +129,7 @@ export function Predictor({
               matchesByGroup={matchesByGroup}
               teamsById={teamsById}
               value={state.groupScores}
+              luckyLosers={new Set(effectiveThirdPlace("expert", state, teams, matches))}
               onSet={(id, score) =>
                 setState((s) => ({ ...s, groupScores: { ...s.groupScores, [id]: score } }))
               }

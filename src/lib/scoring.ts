@@ -1,11 +1,14 @@
-import type { Match, Pick, Stage } from "./types";
+import type { Match, Pick, Stage, Team } from "./types";
+import { deriveStandings } from "./predict/model";
 
 /**
- * Hybrid scoring. Two kinds of picks:
+ * Hybrid scoring. Kinds of picks:
  *  1. ADVANCEMENT — "team reaches stage X" (refs: reach_r32 / reach_r16 /
  *     reach_qf / reach_sf / reach_final / champion). Scored when results confirm
  *     the team actually reached that stage. Escalating reward by depth.
- *  2. MATCH SCORELINE — group-stage matches (Expert). Base points for the
+ *  2. GROUP POSITION — "team finishes Nth in its group" (refs: group_pos:{g}:{n}).
+ *     A bonus for landing a team in its exact final group position. Both levels.
+ *  3. MATCH SCORELINE — group-stage matches (Expert). Base points for the
  *     correct winner + a bonus for the exact scoreline.
  *  Plus structural awards (Golden Boot, etc.).
  *
@@ -24,6 +27,8 @@ export const SCORING = {
   champion: 30,
   runnerUp: 18,
   thirdPlace: 10,
+  // Exact group-table position (both levels), on top of advancement points.
+  groupPosition: 2,
   // Match scoreline (group stage).
   groupWinner: 3,
   exactScoreBonus: 2,
@@ -77,6 +82,30 @@ export function teamsReachedByStage(matches: Match[]): Record<string, Set<string
   return reached;
 }
 
+/**
+ * From real results, the final group-table position (1..4) of every team, for
+ * groups whose six group matches have ALL finished (partial groups are skipped,
+ * so positions don't score prematurely). Reuses the same pts→GD→GF→code tiebreak
+ * as the predictor's live tables — an approximation of FIFA's head-to-head rules,
+ * which is fine for the game.
+ */
+export function actualGroupStandings(matches: Match[], teams: Team[]): Map<string, number> {
+  const pos = new Map<string, number>();
+  const groups = [...new Set(teams.map((t) => t.group).filter(Boolean))] as string[];
+  for (const g of groups) {
+    const gMatches = matches.filter((m) => m.stage === "group" && m.group === g);
+    const finished = gMatches.filter(
+      (m) => m.status === "finished" && m.homeScore != null && m.awayScore != null,
+    );
+    if (finished.length === 0 || finished.length < gMatches.length) continue;
+    const scores: Record<string, { h: number; a: number }> = {};
+    for (const m of finished) scores[m.id] = { h: m.homeScore!, a: m.awayScore! };
+    const gTeams = teams.filter((t) => t.group === g);
+    deriveStandings(gTeams, gMatches, scores).forEach((r, i) => pos.set(r.teamId, i + 1));
+  }
+  return pos;
+}
+
 /** The champion is the winner of the (finished) final. */
 export function actualChampion(matches: Match[]): string | null {
   const final = matches.find((m) => m.stage === "final" && m.status === "finished");
@@ -102,16 +131,31 @@ export function actualThirdPlace(matches: Match[]): string | null {
 export function scorePicks(
   picks: Pick[],
   matches: Match[],
+  teams: Team[],
   opts: { goldenBoot?: string | null } = {},
 ): ScoredPick[] {
   const reached = teamsReachedByStage(matches);
   const champion = actualChampion(matches);
   const runnerUp = actualRunnerUp(matches);
   const thirdPlace = actualThirdPlace(matches);
+  const groupPos = actualGroupStandings(matches, teams);
   const matchById = new Map(matches.map((m) => [m.id, m]));
   const out: ScoredPick[] = [];
 
   for (const p of picks) {
+    // Exact group-table position, ref === "group_pos:{group}:{n}".
+    if (p.ref.startsWith("group_pos:")) {
+      const n = Number(p.ref.split(":")[2]);
+      const ok = p.pickTeamId != null && groupPos.get(p.pickTeamId) === n;
+      out.push({
+        ref: p.ref,
+        pickTeamId: p.pickTeamId,
+        points: ok ? SCORING.groupPosition : 0,
+        detail: ok ? `exact spot +${SCORING.groupPosition}` : "",
+      });
+      continue;
+    }
+
     // Advancement picks.
     if (p.ref in SCORING.reach) {
       // best-third picks are scored against the same reached set as top-2 qualifiers
