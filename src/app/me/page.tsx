@@ -154,8 +154,8 @@ export default async function MePage({
             <section>
               <h2 className="mb-1 font-display text-xl font-bold">Use on another device</h2>
               <p className="mb-4 text-sm text-muted">
-                Your stuff lives in this browser. Add an email to open it on your phone or
-                another computer — no password, no account.
+                Your stuff lives in this browser. Generate a one-time link and open it on
+                your phone or another computer — no password, no account.
               </p>
               <ClaimForm />
             </section>

@@ -1,81 +1,41 @@
 "use server";
 
-import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { ensureUser, getUserIdFromCookie, setUserIdCookie } from "@/lib/identity";
 import { claimToken } from "@/lib/slug";
-import { mailConfigured, sendEmail } from "@/lib/mail";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 const TOKEN_TTL_MS = 1000 * 60 * 30; // 30 minutes
 
-const emailSchema = z.string().trim().email().max(120);
-
-export interface ClaimResult {
+export interface ShareLinkResult {
   ok: boolean;
   error?: string;
-  /** Dev-only: when no mailer is configured, the link is returned for testing. */
-  devLink?: string;
+  /** Single-use link that restores the current identity on another device. */
+  link?: string;
 }
 
 /**
- * Attach an email to the current anonymous player (or target the identity that
- * already owns it) and send a single-use magic link that restores that identity
- * on any device. No password — the email is only used to find the right player.
+ * Mint a single-use magic link for the current anonymous player. Opening it on
+ * another device switches that device to this identity (folding in any data it
+ * already had). No email, no password — the link itself is the credential, so
+ * it's only shown to the person who generated it.
  */
-export async function requestClaim(rawEmail: string): Promise<ClaimResult> {
-  const parsed = emailSchema.safeParse(rawEmail);
-  if (!parsed.success) return { ok: false, error: "Enter a valid email." };
-  const email = parsed.data.toLowerCase();
-
+export async function createShareLink(): Promise<ShareLinkResult> {
   try {
     const userId = await ensureUser();
 
-    // If the email is already tied to an identity, the link restores THAT one
-    // (so a returning player gets their existing data back). Otherwise bind the
-    // email to the current player.
-    const [owner] = await db
-      .select({ id: schema.users.id })
-      .from(schema.users)
-      .where(eq(schema.users.claimedEmail, email))
-      .limit(1);
-
-    let targetUserId = userId;
-    if (owner && owner.id !== userId) {
-      targetUserId = owner.id;
-    } else if (!owner) {
-      await db
-        .update(schema.users)
-        .set({ claimedEmail: email })
-        .where(eq(schema.users.id, userId));
-    }
-
     const token = claimToken();
     await db.insert(schema.claimTokens).values({
-      userId: targetUserId,
+      userId,
       token,
       expiresAt: new Date(Date.now() + TOKEN_TTL_MS),
     });
 
-    const link = `${siteUrl}/claim/${token}`;
-    if (mailConfigured()) {
-      await sendEmail({
-        to: email,
-        subject: "Your Worldie link",
-        text: `Open this link to access your Worldie predictions on this device:\n\n${link}\n\nThe link expires in 30 minutes. If you didn't request it, you can ignore this email.`,
-        html: `<p>Open this link to access your Worldie predictions on this device:</p>
-<p><a href="${link}">${link}</a></p>
-<p>The link expires in 30 minutes. If you didn't request it, you can ignore this email.</p>`,
-      });
-      return { ok: true };
-    }
-
-    // No mailer configured (e.g. local dev) — surface the link so it's testable.
-    return { ok: true, devLink: link };
+    return { ok: true, link: `${siteUrl}/claim/${token}` };
   } catch (err) {
-    console.error("requestClaim failed", err);
-    return { ok: false, error: "Could not send the link. Please try again." };
+    console.error("createShareLink failed", err);
+    return { ok: false, error: "Could not create a link. Please try again." };
   }
 }
 
