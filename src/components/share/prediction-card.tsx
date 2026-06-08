@@ -6,13 +6,15 @@ export function PredictionCard({
   level,
   name,
   champion,
-  finalists,
+  runnerUp,
+  third,
   goldenBoot,
 }: {
   level: Level;
   name: string | null;
   champion: Team | null;
-  finalists: Team[];
+  runnerUp?: Team | null;
+  third?: Team | null;
   goldenBoot: Team | null;
 }) {
   return (
@@ -52,16 +54,19 @@ export function PredictionCard({
           )}
         </div>
 
-        {/* Finalists */}
+        {/* Runner-up & third place */}
         <div className="mt-4 grid grid-cols-2 gap-3">
-          {finalists.map((t) => (
+          {[
+            { team: runnerUp, label: "🥈 Runner-up" },
+            { team: third, label: "🥉 Third" },
+          ].map(({ team, label }) => (
             <div
-              key={t.id}
+              key={label}
               className="rounded-2xl border border-white/10 bg-white/5 p-3 text-center"
             >
-              <div className="text-2xl">{t.flag}</div>
-              <div className="mt-1 text-sm font-semibold">{t.code}</div>
-              <div className="text-[10px] uppercase tracking-wide text-faint">Finalist</div>
+              <div className="text-2xl">{team?.flag ?? "—"}</div>
+              <div className="mt-1 text-sm font-semibold">{team?.code ?? ""}</div>
+              <div className="text-[10px] uppercase tracking-wide text-faint">{label}</div>
             </div>
           ))}
         </div>

@@ -1,5 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { eq } from "drizzle-orm";
+import { db, schema } from "@/lib/db";
 
 const COOKIE = "wid";
 const ONE_YEAR = 60 * 60 * 24 * 365;
@@ -23,4 +25,26 @@ export async function setUserIdCookie(id: string): Promise<void> {
     maxAge: ONE_YEAR,
     path: "/",
   });
+}
+
+/**
+ * Resolve the current player, creating one (and the cookie) if needed. The
+ * single source of truth for anonymous identity — call from Server Actions.
+ */
+export async function ensureUser(): Promise<string> {
+  let userId = await getUserIdFromCookie();
+  if (userId) {
+    const [u] = await db
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(eq(schema.users.id, userId))
+      .limit(1);
+    if (!u) userId = null;
+  }
+  if (!userId) {
+    const [u] = await db.insert(schema.users).values({}).returning({ id: schema.users.id });
+    userId = u.id;
+    await setUserIdCookie(userId);
+  }
+  return userId;
 }

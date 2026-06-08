@@ -3,25 +3,19 @@
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
-import { getUserIdFromCookie, setUserIdCookie } from "@/lib/identity";
+import { ensureUser } from "@/lib/identity";
 import { inviteSlug } from "@/lib/slug";
 
-async function ensureUser(): Promise<string> {
-  let userId = await getUserIdFromCookie();
-  if (userId) {
-    const [u] = await db
-      .select({ id: schema.users.id })
-      .from(schema.users)
-      .where(eq(schema.users.id, userId))
-      .limit(1);
-    if (!u) userId = null;
-  }
-  if (!userId) {
-    const [u] = await db.insert(schema.users).values({}).returning({ id: schema.users.id });
-    userId = u.id;
-    await setUserIdCookie(userId);
-  }
-  return userId;
+/** Whether an invite code points at a real group — used to validate before navigating. */
+export async function groupExists(rawCode: string): Promise<boolean> {
+  const code = rawCode.trim().toUpperCase();
+  if (!code) return false;
+  const [g] = await db
+    .select({ id: schema.groups.id })
+    .from(schema.groups)
+    .where(eq(schema.groups.inviteSlug, code))
+    .limit(1);
+  return !!g;
 }
 
 /** Load an entry the caller owns; null if missing or not theirs. */

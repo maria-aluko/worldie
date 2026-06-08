@@ -38,13 +38,38 @@ export const matches = pgTable(
 
 /* -------------------------------- Players -------------------------------- */
 
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  displayName: text("display_name"),
-  avatarSeed: text("avatar_seed"),
-  claimedEmail: text("claimed_email"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const users = pgTable(
+  "users",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    displayName: text("display_name"),
+    avatarSeed: text("avatar_seed"),
+    claimedEmail: text("claimed_email"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  // An email can belong to at most one player, so it reliably restores identity
+  // on another device. Nulls are allowed to repeat (most players never claim).
+  (t) => [uniqueIndex("users_email_idx").on(t.claimedEmail)],
+);
+
+/**
+ * Single-use magic links that let a player adopt an existing anonymous identity
+ * on a new device — no password account required.
+ */
+export const claimTokens = pgTable(
+  "claim_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    token: text("token").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("claim_tokens_token_idx").on(t.token)],
+);
 
 export const entries = pgTable(
   "entries",
@@ -64,6 +89,9 @@ export const entries = pgTable(
     uniqueIndex("entries_slug_idx").on(t.slug),
     index("entries_user_idx").on(t.userId),
     index("entries_level_idx").on(t.level),
+    // One prediction per player per level — re-predicting edits this entry
+    // rather than spawning duplicates, so it can be reused across many groups.
+    uniqueIndex("entries_user_level_idx").on(t.userId, t.level),
   ],
 );
 

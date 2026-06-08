@@ -45,15 +45,45 @@ export async function getEntryBySlug(slug: string): Promise<EntryView | null> {
   return { entry: toEntry(row), picks };
 }
 
+/** The caller's single entry at a level (for prefilling the editor / one-tap join). */
+export async function getMyEntry(userId: string, level: Level): Promise<EntryView | null> {
+  const [row] = await db
+    .select()
+    .from(schema.entries)
+    .where(and(eq(schema.entries.userId, userId), eq(schema.entries.level, level)))
+    .limit(1);
+  if (!row) return null;
+
+  const pickRows = await db
+    .select()
+    .from(schema.entryPicks)
+    .where(eq(schema.entryPicks.entryId, row.id));
+
+  const picks: Pick[] = pickRows.map((p) => ({
+    ref: p.ref,
+    pickTeamId: p.pickTeamId,
+    predHome: p.predHome,
+    predAway: p.predAway,
+  }));
+
+  return { entry: toEntry(row), picks };
+}
+
 /** Convenience: the headline picks used on cards/leaderboards. */
 export function summarize(picks: Pick[]) {
   const champion = picks.find((p) => p.ref === "champion")?.pickTeamId ?? null;
   const finalists = picks.filter((p) => p.ref === "reach_final").map((p) => p.pickTeamId!);
   const semis = picks.filter((p) => p.ref === "reach_sf").map((p) => p.pickTeamId!);
+  const third = picks.find((p) => p.ref === "third_place")?.pickTeamId ?? null;
   const goldenBoot = picks.find((p) => p.ref === "golden_boot")?.pickTeamId ?? null;
+  const runnerUp = finalists.find((id) => id !== champion) ?? null;
   return {
     champion,
     championTeam: champion ? TEAMS_BY_ID.get(champion) ?? null : null,
+    runnerUp,
+    runnerUpTeam: runnerUp ? TEAMS_BY_ID.get(runnerUp) ?? null : null,
+    third,
+    thirdTeam: third ? TEAMS_BY_ID.get(third) ?? null : null,
     finalists,
     finalistTeams: finalists.map((id) => TEAMS_BY_ID.get(id)).filter(Boolean),
     semis,
@@ -143,7 +173,14 @@ export async function getGroupBySlug(slug: string): Promise<GroupView | null> {
       championId: r.entryId ? champById.get(r.entryId) ?? null : null,
       points: r.points ?? 0,
     }))
-    .sort((a, b) => b.points - a.points);
+    // Points first; then a deterministic tie-break so equal scores don't jitter
+    // between renders.
+    .sort(
+      (a, b) =>
+        b.points - a.points ||
+        (a.displayName ?? "").localeCompare(b.displayName ?? "") ||
+        a.userId.localeCompare(b.userId),
+    );
 
   return {
     id: g.id,
@@ -152,6 +189,117 @@ export async function getGroupBySlug(slug: string): Promise<GroupView | null> {
     inviteSlug: g.inviteSlug,
     members,
   };
+}
+
+export interface MyEntry {
+  id: string;
+  level: Level;
+  slug: string;
+  displayName: string | null;
+  totalPoints: number;
+  championId: string | null;
+  championTeam: ReturnType<typeof TEAMS_BY_ID.get> | null;
+}
+
+export interface MyGroup {
+  id: string;
+  name: string;
+  level: Level;
+  inviteSlug: string;
+  memberCount: number;
+  myPoints: number;
+  rank: number;
+}
+
+export interface UserOverview {
+  entries: MyEntry[];
+  groups: MyGroup[];
+}
+
+/** Everything the current player has: their predictions and the groups they're in. */
+export async function getUserOverview(userId: string): Promise<UserOverview> {
+  // Predictions (at most one per level).
+  const entryRows = await db
+    .select()
+    .from(schema.entries)
+    .where(eq(schema.entries.userId, userId))
+    .orderBy(schema.entries.level);
+
+  const entryIds = entryRows.map((e) => e.id);
+  const champByEntry = new Map<string, string>();
+  if (entryIds.length) {
+    const champs = await db
+      .select({ entryId: schema.entryPicks.entryId, teamId: schema.entryPicks.pickTeamId })
+      .from(schema.entryPicks)
+      .where(
+        and(inArray(schema.entryPicks.entryId, entryIds), eq(schema.entryPicks.ref, "champion")),
+      );
+    for (const c of champs) if (c.teamId) champByEntry.set(c.entryId, c.teamId);
+  }
+
+  const entries: MyEntry[] = entryRows.map((e) => {
+    const championId = champByEntry.get(e.id) ?? null;
+    return {
+      id: e.id,
+      level: e.level as Level,
+      slug: e.slug,
+      displayName: e.displayName,
+      totalPoints: e.totalPoints,
+      championId,
+      championTeam: championId ? TEAMS_BY_ID.get(championId) ?? null : null,
+    };
+  });
+
+  // Groups the player belongs to.
+  const memberships = await db
+    .select({
+      groupId: schema.groups.id,
+      name: schema.groups.name,
+      level: schema.groups.level,
+      inviteSlug: schema.groups.inviteSlug,
+      myEntryId: schema.groupMembers.entryId,
+    })
+    .from(schema.groupMembers)
+    .innerJoin(schema.groups, eq(schema.groupMembers.groupId, schema.groups.id))
+    .where(eq(schema.groupMembers.userId, userId));
+
+  const groupIds = memberships.map((m) => m.groupId);
+  // Every member's points across those groups → lets us compute size and rank.
+  const allMembers = groupIds.length
+    ? await db
+        .select({
+          groupId: schema.groupMembers.groupId,
+          points: schema.entries.totalPoints,
+        })
+        .from(schema.groupMembers)
+        .leftJoin(schema.entries, eq(schema.groupMembers.entryId, schema.entries.id))
+        .where(inArray(schema.groupMembers.groupId, groupIds))
+    : [];
+
+  const pointsByGroup = new Map<string, number[]>();
+  for (const r of allMembers) {
+    const arr = pointsByGroup.get(r.groupId) ?? [];
+    arr.push(r.points ?? 0);
+    pointsByGroup.set(r.groupId, arr);
+  }
+
+  const entryPointsById = new Map(entryRows.map((e) => [e.id, e.totalPoints]));
+
+  const groups: MyGroup[] = memberships.map((m) => {
+    const myPoints = m.myEntryId ? entryPointsById.get(m.myEntryId) ?? 0 : 0;
+    const all = pointsByGroup.get(m.groupId) ?? [];
+    return {
+      id: m.groupId,
+      name: m.name,
+      level: m.level as Level,
+      inviteSlug: m.inviteSlug,
+      memberCount: all.length,
+      myPoints,
+      rank: all.filter((p) => p > myPoints).length + 1,
+    };
+  });
+
+  return { entries, groups };
 }
 
 /** Leaderboard rows for a set of entry ids (used by groups). */

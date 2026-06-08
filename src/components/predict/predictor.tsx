@@ -10,9 +10,11 @@ import { Wordmark } from "@/components/ui/wordmark";
 import { createEntry } from "@/lib/actions/entry";
 import { createGroup, joinGroup } from "@/lib/actions/group";
 import {
+  effectiveThirdPlace,
   emptyState,
   flattenToPicks,
   qualifiers,
+  thirdPlaceCandidates,
   type PredictionState,
 } from "@/lib/predict/model";
 import { SelectN } from "./steps/select-n";
@@ -39,16 +41,22 @@ export function Predictor({
   teams,
   matches,
   groupContext,
+  initialState,
+  initialName,
+  editing = false,
 }: {
   level: Level;
   teams: Team[];
   matches: Match[];
   groupContext?: GroupContext;
+  initialState?: PredictionState;
+  initialName?: string;
+  editing?: boolean;
 }) {
   const router = useRouter();
-  const [state, setState] = useState<PredictionState>(emptyState);
+  const [state, setState] = useState<PredictionState>(() => initialState ?? emptyState());
   const [index, setIndex] = useState(0);
-  const [name, setName] = useState("");
+  const [name, setName] = useState(initialName ?? "");
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -83,6 +91,8 @@ export function Predictor({
     });
 
   const quals = qualifiers(level, state, teams, matches);
+  const thirdCandidates = thirdPlaceCandidates(state);
+  const bronzeCandidates = state.reach_sf.filter((id) => !state.finalists.includes(id));
 
   const steps: Step[] = useMemo(() => {
     const meta = LEVELS[level];
@@ -93,15 +103,15 @@ export function Predictor({
         list.push({
           key: "groups",
           title: "Who escapes the groups?",
-          subtitle: "Pick the top 2 from each of the 12 groups.",
-          valid: groups.every((g) => (state.groupTop2[g]?.length ?? 0) === 2),
+          subtitle: "Rank all four teams in every group, 1 → 4.",
+          valid: groups.every((g) => (state.groupRanks[g]?.length ?? 0) === 4),
           node: (
             <GroupQualifiers
               groups={groups}
               teamsByGroup={teamsByGroup}
-              value={state.groupTop2}
+              value={state.groupRanks}
               onChange={(g, ids) =>
-                setState((s) => ({ ...s, groupTop2: { ...s.groupTop2, [g]: ids } }))
+                setState((s) => ({ ...s, groupRanks: { ...s.groupRanks, [g]: ids } }))
               }
             />
           ),
@@ -110,7 +120,7 @@ export function Predictor({
         list.push({
           key: "scores",
           title: "Predict every group score",
-          subtitle: "Tables update live — top 2 of each group advance.",
+          subtitle: "Tables update live — top 2 plus the 8 best 3rd-placed teams advance.",
           valid: Object.keys(state.groupScores).length >= matches.length,
           node: (
             <GroupScores
@@ -119,6 +129,7 @@ export function Predictor({
               matchesByGroup={matchesByGroup}
               teamsById={teamsById}
               value={state.groupScores}
+              luckyLosers={new Set(effectiveThirdPlace("expert", state, teams, matches))}
               onSet={(id, score) =>
                 setState((s) => ({ ...s, groupScores: { ...s.groupScores, [id]: score } }))
               }
@@ -127,10 +138,28 @@ export function Predictor({
         });
       }
 
+      // Standard players choose the 8 lucky losers from the 12 teams they
+      // designated 3rd; expert auto-solves this from the predicted scorelines.
+      if (level === "standard") {
+        list.push({
+          key: "third",
+          title: "Best third-placed teams",
+          subtitle: "8 of your 12 third-placed teams also qualify. Which ones make it?",
+          valid: state.thirdPlace.length === 8,
+          node: (
+            <SelectN
+              teams={pick(thirdCandidates)}
+              selected={state.thirdPlace}
+              max={8}
+              onToggle={(id) => toggleIn("thirdPlace", id, 8)}
+            />
+          ),
+        });
+      }
       list.push({
         key: "r16",
-        title: "Round of 16",
-        subtitle: "Send 16 of your 24 qualifiers through.",
+        title: "Round of 32",
+        subtitle: "16 of your 32 qualifiers advance. Who survives?",
         valid: state.reach_r16.length === 16,
         node: (
           <SelectN
@@ -197,6 +226,20 @@ export function Predictor({
         ),
       });
       list.push({
+        key: "bronze",
+        title: "The bronze medal",
+        subtitle: "Which beaten semi-finalist wins the third-place playoff?",
+        valid: state.bronze != null && bronzeCandidates.includes(state.bronze),
+        node: (
+          <ChampionPick
+            candidates={pick(bronzeCandidates)}
+            value={state.bronze}
+            tone="bronze"
+            onSelect={(id) => setState((s) => ({ ...s, bronze: id }))}
+          />
+        ),
+      });
+      list.push({
         key: "golden",
         title: "Golden Boot",
         subtitle: "Whose nation tops the scoring charts?",
@@ -238,7 +281,9 @@ export function Predictor({
       ? "Create group →"
       : groupContext?.mode === "join"
         ? "Join group →"
-        : "Get my card →";
+        : editing
+          ? "Save changes →"
+          : "Get my card →";
 
   function next() {
     setError(null);
@@ -361,10 +406,20 @@ function Review({
   onName: (v: string) => void;
 }) {
   const champ = state.champion ? teamsById.get(state.champion) : null;
+  const runnerUpId = state.finalists.find((id) => id !== state.champion);
+  const podium: { medal: string; label: string; team?: Team }[] = [
+    { medal: "🥇", label: "Champion", team: champ ?? undefined },
+    {
+      medal: "🥈",
+      label: "Runner-up",
+      team: runnerUpId ? teamsById.get(runnerUpId) : undefined,
+    },
+    { medal: "🥉", label: "Third", team: state.bronze ? teamsById.get(state.bronze) : undefined },
+  ];
   return (
     <div className="space-y-6">
       <div className="rounded-3xl border border-gold/30 bg-gradient-to-br from-gold/10 to-transparent p-8 text-center">
-        <p className="text-xs font-bold uppercase tracking-widest text-gold">Your champion</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-gold">Your podium</p>
         {champ ? (
           <>
             <div className="mt-3 text-7xl">{champ.flag}</div>
@@ -373,18 +428,20 @@ function Review({
         ) : (
           <p className="mt-3 text-muted">No champion picked yet.</p>
         )}
-        <div className="mt-4 flex flex-wrap justify-center gap-2">
-          {state.finalists.map((id) => {
-            const t = teamsById.get(id);
-            return t ? (
-              <span
-                key={id}
-                className="rounded-full border border-white/10 px-3 py-1 text-sm"
-              >
-                {t.flag} {t.code}
-              </span>
-            ) : null;
-          })}
+        <div className="mt-5 grid grid-cols-3 gap-2">
+          {podium.map(({ medal, label, team }) => (
+            <div
+              key={label}
+              className="rounded-2xl border border-white/10 bg-ink-600/40 px-2 py-3 text-center"
+            >
+              <div className="text-2xl">{medal}</div>
+              <div className="mt-1 text-2xl">{team?.flag ?? "—"}</div>
+              <div className="mt-1 truncate text-sm font-semibold">{team?.code ?? ""}</div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-faint">
+                {label}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

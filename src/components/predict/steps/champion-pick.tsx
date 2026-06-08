@@ -4,45 +4,47 @@ import { motion } from "framer-motion";
 import type { Team } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-/** Crown the champion from a small candidate pool (the finalists). */
+/**
+ * Pick a single winner from a small candidate pool — the champion (default) or,
+ * with the `tone="bronze"` variant, the 3rd-place playoff winner.
+ */
 export function ChampionPick({
   candidates,
   value,
   onSelect,
+  tone = "gold",
 }: {
   candidates: Team[];
   value: string | null;
   onSelect: (id: string) => void;
+  tone?: "gold" | "bronze";
 }) {
+  const t = TONES[tone];
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      {candidates.map((t) => {
-        const sel = value === t.id;
+      {candidates.map((team) => {
+        const sel = value === team.id;
         return (
           <motion.button
-            key={t.id}
+            key={team.id}
             type="button"
             whileTap={{ scale: 0.97 }}
-            onClick={() => onSelect(t.id)}
+            onClick={() => onSelect(team.id)}
             className={cn(
               "relative flex flex-col items-center gap-3 overflow-hidden rounded-3xl border p-8 transition-all",
-              sel
-                ? "border-gold bg-gold/10 shadow-[0_0_40px_-8px_rgba(255,203,45,0.5)]"
-                : "border-white/10 bg-ink-600/60 hover:border-white/25",
+              sel ? t.selected : "border-white/10 bg-ink-600/60 hover:border-white/25",
             )}
           >
-            {sel && (
-              <span className="absolute right-4 top-4 text-2xl text-glow-gold">🏆</span>
-            )}
-            <span className="text-6xl">{t.flag}</span>
-            <span className="font-display text-2xl font-extrabold">{t.name}</span>
+            {sel && <span className="absolute right-4 top-4 text-2xl">{t.emoji}</span>}
+            <span className="text-6xl">{team.flag}</span>
+            <span className="font-display text-2xl font-extrabold">{team.name}</span>
             <span
               className={cn(
                 "text-xs font-bold uppercase tracking-widest",
-                sel ? "text-gold" : "text-faint",
+                sel ? t.label : "text-faint",
               )}
             >
-              {sel ? "Your champion" : "Tap to crown"}
+              {sel ? t.selectedHint : t.hint}
             </span>
           </motion.button>
         );
@@ -50,3 +52,20 @@ export function ChampionPick({
     </div>
   );
 }
+
+const TONES = {
+  gold: {
+    emoji: "🏆",
+    selected: "border-gold bg-gold/10 shadow-[0_0_40px_-8px_rgba(255,203,45,0.5)]",
+    label: "text-gold",
+    selectedHint: "Your champion",
+    hint: "Tap to crown",
+  },
+  bronze: {
+    emoji: "🥉",
+    selected: "border-amber-600 bg-amber-600/10 shadow-[0_0_40px_-8px_rgba(217,119,6,0.5)]",
+    label: "text-amber-500",
+    selectedHint: "Your bronze",
+    hint: "Tap for third",
+  },
+} as const;

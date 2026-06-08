@@ -12,6 +12,7 @@ export function GroupScores({
   matchesByGroup,
   teamsById,
   value,
+  luckyLosers,
   onSet,
 }: {
   groups: string[];
@@ -19,6 +20,8 @@ export function GroupScores({
   matchesByGroup: Record<string, Match[]>;
   teamsById: Map<string, Team>;
   value: Scores;
+  /** Team ids of the 8 best 3rd-placed teams the scorelines imply qualify. */
+  luckyLosers: Set<string>;
   onSet: (matchId: string, score: { h: number; a: number }) => void;
 }) {
   return (
@@ -68,18 +71,24 @@ export function GroupScores({
             <div className="mt-3 border-t border-white/5 pt-3">
               {table.map((r, i) => {
                 const t = teamsById.get(r.teamId)!;
-                const adv = i < 2;
+                const top2 = i < 2;
+                const lucky = i === 2 && luckyLosers.has(r.teamId);
                 return (
                   <div
                     key={r.teamId}
                     className={cn(
                       "flex items-center gap-2 py-0.5 text-xs",
-                      adv ? "text-lime" : "text-faint",
+                      top2 ? "text-lime" : lucky ? "text-cyan" : "text-faint",
                     )}
                   >
                     <span className="w-4 text-center font-bold">{i + 1}</span>
                     <span>{t.flag}</span>
                     <span className="flex-1 truncate">{t.name}</span>
+                    {lucky && (
+                      <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide">
+                        🍀 lucky loser
+                      </span>
+                    )}
                     <span className="tabular-nums">{r.pts} pts</span>
                     <span className="w-8 text-right tabular-nums">
                       {r.gd > 0 ? `+${r.gd}` : r.gd}

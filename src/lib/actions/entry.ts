@@ -1,9 +1,9 @@
 "use server";
 
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
-import { getUserIdFromCookie, setUserIdCookie } from "@/lib/identity";
+import { ensureUser } from "@/lib/identity";
 import { entrySlug } from "@/lib/slug";
 
 const pickSchema = z.object({
@@ -28,6 +28,12 @@ export interface SubmitResult {
   error?: string;
 }
 
+/**
+ * Save the caller's prediction for a level. A player has exactly one entry per
+ * level: re-submitting edits that entry in place (keeping its share slug so
+ * links stay valid) instead of creating duplicates. The single entry is what
+ * every group the player joins points at.
+ */
 export async function createEntry(raw: SubmitInput): Promise<SubmitResult> {
   const parsed = submitSchema.safeParse(raw);
   if (!parsed.success) {
@@ -36,33 +42,37 @@ export async function createEntry(raw: SubmitInput): Promise<SubmitResult> {
   const { level, displayName, picks } = parsed.data;
 
   try {
-    // Resolve (or create) the anonymous player.
-    let userId = await getUserIdFromCookie();
-    if (userId) {
-      const existing = await db
-        .select({ id: schema.users.id })
-        .from(schema.users)
-        .where(eq(schema.users.id, userId))
-        .limit(1);
-      if (existing.length === 0) userId = null;
-    }
-    if (!userId) {
-      const [u] = await db
-        .insert(schema.users)
-        .values({ displayName: displayName || null })
-        .returning({ id: schema.users.id });
-      userId = u.id;
-      await setUserIdCookie(userId);
-    }
+    const userId = await ensureUser();
 
-    const slug = entrySlug();
-    const [entry] = await db
-      .insert(schema.entries)
-      .values({ userId, level, slug, displayName: displayName || null })
-      .returning({ id: schema.entries.id });
+    // Re-use the player's existing entry at this level if there is one.
+    const [existing] = await db
+      .select({ id: schema.entries.id, slug: schema.entries.slug })
+      .from(schema.entries)
+      .where(and(eq(schema.entries.userId, userId), eq(schema.entries.level, level)))
+      .limit(1);
+
+    let entryId: string;
+    let slug: string;
+    if (existing) {
+      entryId = existing.id;
+      slug = existing.slug;
+      await db
+        .update(schema.entries)
+        .set({ displayName: displayName || null })
+        .where(eq(schema.entries.id, entryId));
+      // Replace picks wholesale — simplest correct way to apply edits.
+      await db.delete(schema.entryPicks).where(eq(schema.entryPicks.entryId, entryId));
+    } else {
+      slug = entrySlug();
+      const [entry] = await db
+        .insert(schema.entries)
+        .values({ userId, level, slug, displayName: displayName || null })
+        .returning({ id: schema.entries.id });
+      entryId = entry.id;
+    }
 
     const rows = picks.map((p) => ({
-      entryId: entry.id,
+      entryId,
       ref: p.ref,
       pickTeamId: p.pickTeamId ?? null,
       predHome: p.predHome ?? null,
@@ -70,7 +80,7 @@ export async function createEntry(raw: SubmitInput): Promise<SubmitResult> {
     }));
     if (rows.length) await db.insert(schema.entryPicks).values(rows);
 
-    return { ok: true, slug, entryId: entry.id };
+    return { ok: true, slug, entryId };
   } catch (err) {
     console.error("createEntry failed", err);
     return { ok: false, error: "Could not save your prediction. Please try again." };
