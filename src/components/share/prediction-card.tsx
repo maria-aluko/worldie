@@ -1,5 +1,6 @@
 import type { Level, Team } from "@/lib/types";
 import { LEVELS } from "@/lib/constants";
+import { Flag } from "@/components/ui/flag";
 
 /** The shareable "prediction card" rendered on the result page. */
 export function PredictionCard({
@@ -44,7 +45,9 @@ export function PredictionCard({
           </p>
           {champion ? (
             <>
-              <div className="mt-2 text-6xl">{champion.flag}</div>
+              <div className="mt-2 text-6xl">
+                <Flag flag={champion.flag} />
+              </div>
               <div className="mt-1 font-display text-2xl font-extrabold">
                 {champion.name}
               </div>
@@ -64,7 +67,7 @@ export function PredictionCard({
               key={label}
               className="rounded-2xl border border-white/10 bg-white/5 p-3 text-center"
             >
-              <div className="text-2xl">{team?.flag ?? "—"}</div>
+              <div className="text-2xl">{team ? <Flag flag={team.flag} /> : "—"}</div>
               <div className="mt-1 text-sm font-semibold">{team?.code ?? ""}</div>
               <div className="text-[10px] uppercase tracking-wide text-faint">{label}</div>
             </div>
@@ -78,7 +81,7 @@ export function PredictionCard({
               ⚽ Golden Boot
             </span>
             <span className="text-sm font-semibold">
-              {goldenBoot.flag} {goldenBoot.name}
+              <Flag flag={goldenBoot.flag} /> {goldenBoot.name}
             </span>
           </div>
         )}

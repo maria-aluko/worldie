@@ -3,6 +3,7 @@
 import type { Match, Team } from "@/lib/types";
 import { deriveStandings } from "@/lib/predict/model";
 import { cn } from "@/lib/utils";
+import { Flag } from "@/components/ui/flag";
 
 type Scores = Record<string, { h: number; a: number }>;
 
@@ -45,7 +46,7 @@ export function GroupScores({
                   >
                     <span className="flex w-[38%] items-center justify-end gap-1.5 truncate text-sm">
                       <span className="truncate">{home.code}</span>
-                      <span>{home.flag}</span>
+                      <Flag flag={home.flag} />
                     </span>
                     <Stepper
                       value={s.h}
@@ -59,7 +60,7 @@ export function GroupScores({
                       onChange={(a) => onSet(m.id, { h: s.h, a })}
                     />
                     <span className="flex w-[38%] items-center gap-1.5 truncate text-sm">
-                      <span>{away.flag}</span>
+                      <Flag flag={away.flag} />
                       <span className="truncate">{away.code}</span>
                     </span>
                   </div>
@@ -82,7 +83,7 @@ export function GroupScores({
                     )}
                   >
                     <span className="w-4 text-center font-bold">{i + 1}</span>
-                    <span>{t.flag}</span>
+                    <Flag flag={t.flag} />
                     <span className="flex-1 truncate">{t.name}</span>
                     {lucky && (
                       <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide">

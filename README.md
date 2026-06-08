@@ -52,12 +52,9 @@ Scoring rules live in `src/lib/scoring.ts` and are tunable in one place.
 
 ## Notes / next steps
 
-- Team field is illustrative; the results feed maps real teams by FIFA 3-letter
-  code. Swap `src/lib/data/teams.ts` for the official draw when finalized.
 - Multi-language support
 - Supabase Realtime for instant leaderboard updates, per-pick
   score breakdowns on the result page, rate limiting, account "claim" via magic
   link.
-- Add light mode
 - Add other major tournaments
 - Add reward-pool for groups

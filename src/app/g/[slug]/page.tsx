@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
+import { Flag } from "@/components/ui/flag";
 import { CopyInvite } from "@/components/groups/group-actions";
 import { JoinWithEntry } from "@/components/groups/join-with-entry";
 import { getGroupBySlug, getMyEntry, summarize } from "@/lib/queries";
@@ -142,7 +143,13 @@ export default async function GroupPage({
                   )}
                 </span>
                 <span className="text-sm">
-                  {champ ? `${champ.flag} ${champ.code}` : "—"}
+                  {champ ? (
+                    <>
+                      <Flag flag={champ.flag} /> {champ.code}
+                    </>
+                  ) : (
+                    "—"
+                  )}
                 </span>
                 <span className="text-right font-display font-bold tabular-nums">
                   {m.points}

@@ -1,5 +1,6 @@
 import { Wordmark } from "./ui/wordmark";
 import { Button } from "./ui/button";
+import { ThemeToggle } from "./ui/theme-toggle";
 
 export function SiteHeader() {
   return (
@@ -16,6 +17,7 @@ export function SiteHeader() {
           <Button href="/me" variant="ghost" size="sm">
             My stuff
           </Button>
+          <ThemeToggle />
           <Button href="/predict" size="sm" className="hidden sm:inline-flex">
             Play
           </Button>

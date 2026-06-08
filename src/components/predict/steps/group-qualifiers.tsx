@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import type { Team } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { Flag } from "@/components/ui/flag";
 
 /**
  * Standard level: rank all four teams in each group, 1 → 4. The top 2 advance
@@ -82,7 +83,7 @@ export function GroupQualifiers({
                         : "border-white/10 bg-ink-600/60 text-muted hover:border-white/25",
                     )}
                   >
-                    <span className="text-xl">{t.flag}</span>
+                    <Flag flag={t.flag} className="text-xl" />
                     <span className="min-w-0 flex-1 truncate text-sm font-semibold">
                       {t.name}
                     </span>

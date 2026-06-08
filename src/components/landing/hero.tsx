@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Button } from "../ui/button";
+import { Flag } from "../ui/flag";
 
 const stagger = {
   hidden: {},
@@ -91,7 +92,7 @@ function FloatingFlags() {
             animate={{ opacity: [0.15, 0.5, 0.15], y: [0, -18, 0] }}
             transition={{ duration: 7 + (i % 5), repeat: Infinity, delay, ease: "easeInOut" }}
           >
-            {f}
+            <Flag flag={f} />
           </motion.span>
         );
       })}

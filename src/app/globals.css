@@ -45,6 +45,40 @@
   --animate-shimmer: shimmer 2.5s linear infinite;
 }
 
+/* ============================================================
+   Light theme overrides — applied when `html.light` is set
+   ============================================================ */
+html.light {
+  /* Flip ink (dark bg) → light grays */
+  --color-ink: #f8f9fc;
+  --color-ink-700: #eef0f6;
+  --color-ink-600: #e4e7f0;
+  --color-ink-500: #d8dce8;
+  --color-ink-400: #c6cbda;
+
+  /* Flip paper (light text) → dark text */
+  --color-paper: #0e0e16;
+  --color-muted: #484d63;
+  --color-faint: #7c8197;
+
+  /* Deepen accents for contrast on light backgrounds */
+  --color-lime: #6e9900;
+  --color-lime-bright: #85b800;
+  --color-magenta: #d40060;
+  --color-cyan: #0099b0;
+  --color-gold: #b88000;
+  --color-violet: #5b35cc;
+}
+
+/* Subtle ambient glow in light mode */
+html.light .bg-pitch {
+  background-color: var(--color-ink);
+  background-image:
+    radial-gradient(60rem 40rem at 12% -10%, color-mix(in srgb, var(--color-magenta) 8%, transparent), transparent 60%),
+    radial-gradient(55rem 38rem at 92% 0%, color-mix(in srgb, var(--color-cyan) 6%, transparent), transparent 55%),
+    radial-gradient(70rem 50rem at 50% 120%, color-mix(in srgb, var(--color-lime) 5%, transparent), transparent 60%);
+}
+
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-12px); }

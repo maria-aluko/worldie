@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import type { Team } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { Flag } from "@/components/ui/flag";
 
 /**
  * Pick a single winner from a small candidate pool — the champion (default) or,
@@ -36,7 +37,7 @@ export function ChampionPick({
             )}
           >
             {sel && <span className="absolute right-4 top-4 text-2xl">{t.emoji}</span>}
-            <span className="text-6xl">{team.flag}</span>
+            <Flag flag={team.flag} className="text-6xl" />
             <span className="font-display text-2xl font-extrabold">{team.name}</span>
             <span
               className={cn(

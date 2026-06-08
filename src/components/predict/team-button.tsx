@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import type { Team } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { Flag } from "@/components/ui/flag";
 
 export function TeamButton({
   team,
@@ -34,7 +35,7 @@ export function TeamButton({
         disabled && !selected && "cursor-not-allowed opacity-35 hover:border-white/10",
       )}
     >
-      <span className={cn(size === "md" ? "text-2xl" : "text-xl")}>{team.flag}</span>
+      <Flag flag={team.flag} className={cn(size === "md" ? "text-2xl" : "text-xl")} />
       <span className="min-w-0 flex-1">
         <span className="block truncate font-semibold leading-tight">{team.name}</span>
         <span className="text-xs text-faint">{team.code}</span>

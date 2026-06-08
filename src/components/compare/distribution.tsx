@@ -1,5 +1,6 @@
 import { TEAMS_BY_ID } from "@/lib/data/teams";
 import { pct } from "@/lib/utils";
+import { Flag } from "@/components/ui/flag";
 
 export interface DistRow {
   teamId: string;
@@ -34,7 +35,7 @@ export function Distribution({
         const p = pct(r.count, total);
         return (
           <div key={r.teamId} className="flex items-center gap-3">
-            <span className="w-7 text-xl">{t?.flag ?? "🏳️"}</span>
+            <span className="w-7 text-xl">{t ? <Flag flag={t.flag} /> : "🏳️"}</span>
             <span className="w-24 shrink-0 truncate text-sm font-semibold">
               {t?.name ?? r.teamId}
             </span>

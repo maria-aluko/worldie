@@ -48,7 +48,12 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${unbounded.variable} ${jakarta.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        {/* Apply stored theme before first paint to avoid flash */}
+        <script dangerouslySetInnerHTML={{ __html: `(function(){if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light');})();` }} />
+      </head>
       <body className="bg-pitch min-h-full flex flex-col">{children}</body>
     </html>
   );

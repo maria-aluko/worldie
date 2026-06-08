@@ -7,6 +7,7 @@ import type { Level, Match, Team } from "@/lib/types";
 import { LEVELS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Wordmark } from "@/components/ui/wordmark";
+import { Flag } from "@/components/ui/flag";
 import { createEntry } from "@/lib/actions/entry";
 import { createGroup, joinGroup } from "@/lib/actions/group";
 import {
@@ -422,7 +423,9 @@ function Review({
         <p className="text-xs font-bold uppercase tracking-widest text-gold">Your podium</p>
         {champ ? (
           <>
-            <div className="mt-3 text-7xl">{champ.flag}</div>
+            <div className="mt-3 text-7xl">
+              <Flag flag={champ.flag} />
+            </div>
             <div className="mt-2 font-display text-3xl font-extrabold">{champ.name}</div>
           </>
         ) : (
@@ -435,7 +438,7 @@ function Review({
               className="rounded-2xl border border-white/10 bg-ink-600/40 px-2 py-3 text-center"
             >
               <div className="text-2xl">{medal}</div>
-              <div className="mt-1 text-2xl">{team?.flag ?? "—"}</div>
+              <div className="mt-1 text-2xl">{team ? <Flag flag={team.flag} /> : "—"}</div>
               <div className="mt-1 truncate text-sm font-semibold">{team?.code ?? ""}</div>
               <div className="text-[10px] font-bold uppercase tracking-widest text-faint">
                 {label}

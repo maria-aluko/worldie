@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
+import { Flag } from "@/components/ui/flag";
 import { ClaimForm } from "@/components/claim/claim-form";
 import { getUserIdFromCookie } from "@/lib/identity";
 import { getUserOverview } from "@/lib/queries";
@@ -83,7 +84,13 @@ export default async function MePage({
                       </div>
                       <p className="mt-1 text-sm text-muted">
                         Champion:{" "}
-                        {e.championTeam ? `${e.championTeam.flag} ${e.championTeam.name}` : "—"}
+                        {e.championTeam ? (
+                          <>
+                            <Flag flag={e.championTeam.flag} /> {e.championTeam.name}
+                          </>
+                        ) : (
+                          "—"
+                        )}
                       </p>
                       <div className="mt-4 flex gap-2">
                         <Button href={`/predict/${e.level}`} variant="outline" size="sm">
