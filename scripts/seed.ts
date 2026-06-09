@@ -1,10 +1,11 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
-import { notInArray } from "drizzle-orm";
+import { and, eq, notInArray, sql } from "drizzle-orm";
 import { db, schema } from "../src/lib/db";
 import { TEAMS } from "../src/lib/data/teams";
 import { buildGroupFixtures } from "../src/lib/data/fixtures";
+import { buildPaniniWc2026 } from "../src/lib/data/panini-wc2026";
 
 /**
  * Seed (and re-sync) the reference data: the 48-team field and the 72 group
@@ -19,7 +20,11 @@ import { buildGroupFixtures } from "../src/lib/data/fixtures";
 async function main() {
   const fixtures = buildGroupFixtures();
   const teamIds = TEAMS.map((t) => t.id);
-  console.log(`Syncing ${TEAMS.length} teams and ${fixtures.length} group matches…`);
+  const album = buildPaniniWc2026();
+  console.log(
+    `Syncing ${TEAMS.length} teams, ${fixtures.length} group matches, ` +
+      `and ${album.stickers.length} stickers…`,
+  );
 
   await db.transaction(async (tx) => {
     // Teams: upsert the canonical field…
@@ -64,6 +69,50 @@ async function main() {
           },
         });
     }
+
+    // Sticker album: upsert the set + checklist by code; preserve player status.
+    await tx
+      .insert(schema.stickerSets)
+      .values({
+        id: album.id,
+        name: album.name,
+        season: album.season,
+        totalCount: album.stickers.length,
+      })
+      .onConflictDoUpdate({
+        target: schema.stickerSets.id,
+        set: { name: album.name, season: album.season, totalCount: album.stickers.length },
+      });
+
+    const stickerRows = album.stickers.map((s, i) => ({
+      setId: album.id,
+      code: s.code,
+      label: s.label,
+      section: s.section,
+      teamId: s.teamId,
+      sortOrder: i,
+    }));
+    await tx
+      .insert(schema.stickers)
+      .values(stickerRows)
+      .onConflictDoUpdate({
+        target: [schema.stickers.setId, schema.stickers.code],
+        set: {
+          label: sql`excluded.label`,
+          section: sql`excluded.section`,
+          teamId: sql`excluded.team_id`,
+          sortOrder: sql`excluded.sort_order`,
+        },
+      });
+
+    // …then drop any sticker code no longer in the checklist.
+    const codes = album.stickers.map((s) => s.code);
+    const prunedStickers = await tx
+      .delete(schema.stickers)
+      .where(and(eq(schema.stickers.setId, album.id), notInArray(schema.stickers.code, codes)))
+      .returning({ id: schema.stickers.id });
+    if (prunedStickers.length)
+      console.log(`Pruned ${prunedStickers.length} stale stickers.`);
   });
 
   console.log("✓ Seed complete.");

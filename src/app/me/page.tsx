@@ -4,7 +4,8 @@ import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { Flag } from "@/components/ui/flag";
 import { ClaimForm } from "@/components/claim/claim-form";
-import { getUserIdFromCookie } from "@/lib/identity";
+import { getAuthedUser, getUserIdFromCookie } from "@/lib/identity";
+import { logout } from "@/lib/actions/auth";
 import { getUserOverview } from "@/lib/queries";
 import { LEVELS } from "@/lib/constants";
 
@@ -19,6 +20,7 @@ export default async function MePage({
 }) {
   const { claimed, claim_error: claimError } = await searchParams;
   const userId = await getUserIdFromCookie();
+  const account = await getAuthedUser();
   const data = userId
     ? await getUserOverview(userId).catch(() => ({ entries: [], groups: [] }))
     : { entries: [], groups: [] };
@@ -45,6 +47,29 @@ export default async function MePage({
         {claimError && (
           <div className="mb-6 rounded-2xl border border-magenta/30 bg-magenta/5 px-4 py-3 text-sm text-paper">
             {claimError}
+          </div>
+        )}
+
+        {account?.isLoggedIn ? (
+          <div className="mb-8 flex flex-col gap-3 rounded-2xl border border-lime/20 bg-lime/5 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-paper">
+              Logged in{account.email ? <> as <span className="font-semibold">{account.email}</span></> : ""} — your stuff is saved to your account.
+            </span>
+            <form action={logout}>
+              <Button type="submit" variant="outline" size="sm">
+                Log out
+              </Button>
+            </form>
+          </div>
+        ) : (
+          <div className="mb-8 flex flex-col gap-3 rounded-2xl border border-white/10 bg-ink-600/40 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-muted">
+              Playing as a guest. Log in to save your predictions across devices and unlock
+              your sticker album.
+            </span>
+            <Button href="/login?returnTo=/me" variant="primary" size="sm" className="shrink-0">
+              Log in
+            </Button>
           </div>
         )}
 

@@ -1,8 +1,9 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { ensureUser, getUserIdFromCookie, setUserIdCookie } from "@/lib/identity";
+import { mergeUsers } from "@/lib/actions/merge";
 import { claimToken } from "@/lib/slug";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -74,65 +75,4 @@ export async function confirmClaim(token: string): Promise<{ ok: boolean; error?
     console.error("confirmClaim failed", err);
     return { ok: false, error: "Could not complete sign-in." };
   }
-}
-
-/**
- * Fold `fromUserId`'s data into `toUserId` (the claimed, canonical identity).
- * On conflicts (an entry at the same level, or membership of the same group)
- * the claimed identity wins and the source's duplicate is dropped. Finally the
- * now-empty source user is deleted.
- */
-async function mergeUsers(fromUserId: string, toUserId: string): Promise<void> {
-  // Entries: move levels the target lacks; drop duplicates.
-  const targetLevels = new Set(
-    (
-      await db
-        .select({ level: schema.entries.level })
-        .from(schema.entries)
-        .where(eq(schema.entries.userId, toUserId))
-    ).map((r) => r.level),
-  );
-  const fromEntries = await db
-    .select({ id: schema.entries.id, level: schema.entries.level })
-    .from(schema.entries)
-    .where(eq(schema.entries.userId, fromUserId));
-  for (const e of fromEntries) {
-    if (targetLevels.has(e.level)) {
-      await db.delete(schema.entries).where(eq(schema.entries.id, e.id));
-    } else {
-      await db
-        .update(schema.entries)
-        .set({ userId: toUserId })
-        .where(eq(schema.entries.id, e.id));
-      targetLevels.add(e.level);
-    }
-  }
-
-  // Memberships: move groups the target isn't in; drop duplicates.
-  const targetGroups = new Set(
-    (
-      await db
-        .select({ groupId: schema.groupMembers.groupId })
-        .from(schema.groupMembers)
-        .where(eq(schema.groupMembers.userId, toUserId))
-    ).map((r) => r.groupId),
-  );
-  const fromMemberships = await db
-    .select({ groupId: schema.groupMembers.groupId })
-    .from(schema.groupMembers)
-    .where(eq(schema.groupMembers.userId, fromUserId));
-  for (const m of fromMemberships) {
-    const where = and(
-      eq(schema.groupMembers.groupId, m.groupId),
-      eq(schema.groupMembers.userId, fromUserId),
-    );
-    if (targetGroups.has(m.groupId)) {
-      await db.delete(schema.groupMembers).where(where);
-    } else {
-      await db.update(schema.groupMembers).set({ userId: toUserId }).where(where);
-      targetGroups.add(m.groupId);
-    }
-  }
-
-  await db.delete(schema.users).where(eq(schema.users.id, fromUserId));
 }

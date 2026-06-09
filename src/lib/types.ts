@@ -4,6 +4,13 @@ export type Stage = "group" | "r32" | "r16" | "qf" | "sf" | "third" | "final";
 
 export type Level = "standard" | "expert";
 
+/**
+ * A player's relationship to a sticker. "not_owned" is the default and is
+ * represented by the absence of a `user_stickers` row. "desired" is reserved
+ * for a future location-based swap-matching feature.
+ */
+export type StickerStatus = "not_owned" | "owned" | "swappable" | "desired";
+
 export type MatchStatus = "scheduled" | "live" | "finished";
 
 export interface Team {

@@ -45,11 +45,19 @@ export const users = pgTable(
     displayName: text("display_name"),
     avatarSeed: text("avatar_seed"),
     claimedEmail: text("claimed_email"),
+    // Supabase Auth user id (the auth.users UUID). Set when a player links a
+    // real account via "Continue with Google"; makes the account restorable on
+    // any device. Null for anonymous players.
+    authUserId: text("auth_user_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  // An email can belong to at most one player, so it reliably restores identity
-  // on another device. Nulls are allowed to repeat (most players never claim).
-  (t) => [uniqueIndex("users_email_idx").on(t.claimedEmail)],
+  // An email / linked auth account can each belong to at most one player, so
+  // they reliably restore identity on another device. Nulls repeat (most
+  // players stay anonymous and never link an account).
+  (t) => [
+    uniqueIndex("users_email_idx").on(t.claimedEmail),
+    uniqueIndex("users_auth_user_idx").on(t.authUserId),
+  ],
 );
 
 /**
@@ -158,3 +166,62 @@ export const pickStats = pgTable("pick_stats", {
   total: integer("total").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/* --------------------------- Sticker collections -------------------------- */
+
+/**
+ * A collectible album, e.g. the Panini World Cup 2026 sticker collection. One
+ * row per collection so the feature can later host other competitions.
+ */
+export const stickerSets = pgTable("sticker_sets", {
+  id: text("id").primaryKey(), // e.g. "wc-2026"
+  name: text("name").notNull(),
+  season: text("season"),
+  totalCount: integer("total_count").notNull().default(0),
+});
+
+/**
+ * Reference checklist of stickers in a set — seeded, no copyrighted artwork.
+ * `code` is the official card code printed on the sticker (e.g. "1", "FWC 5").
+ */
+export const stickers = pgTable(
+  "stickers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    setId: text("set_id")
+      .notNull()
+      .references(() => stickerSets.id, { onDelete: "cascade" }),
+    code: text("code").notNull(), // official card code
+    label: text("label"), // plain text name (no image)
+    section: text("section").notNull(), // grouping, e.g. team name or "Tournament"
+    teamId: text("team_id").references(() => teams.id, { onDelete: "set null" }),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [
+    uniqueIndex("stickers_set_code_idx").on(t.setId, t.code),
+    index("stickers_set_idx").on(t.setId),
+  ],
+);
+
+/**
+ * A player's status for a sticker. Sparse: a missing row means "not owned"
+ * (the default), so we only store the stickers a player has interacted with.
+ * `status` ∈ "owned" | "swappable" | "desired".
+ */
+export const userStickers = pgTable(
+  "user_stickers",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    stickerId: uuid("sticker_id")
+      .notNull()
+      .references(() => stickers.id, { onDelete: "cascade" }),
+    status: text("status").notNull(), // StickerStatus
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("user_stickers_unique").on(t.userId, t.stickerId),
+    index("user_stickers_user_idx").on(t.userId),
+  ],
+);
