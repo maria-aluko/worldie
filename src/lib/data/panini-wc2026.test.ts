@@ -5,30 +5,43 @@ import { TEAMS } from "./teams";
 describe("buildPaniniWc2026", () => {
   const album = buildPaniniWc2026();
 
-  it("uses the canonical set id and a non-empty checklist", () => {
+  it("uses the canonical set id", () => {
     expect(album.id).toBe(PANINI_WC2026_SET_ID);
-    expect(album.stickers.length).toBeGreaterThan(0);
   });
 
-  it("numbers stickers sequentially from 1 with no gaps or duplicates", () => {
+  it("has the expected total: 00 + FWC1-19 + 48×20 teams + 20 extras", () => {
+    expect(album.stickers.length).toBe(1 + 19 + TEAMS.length * 20 + 20);
+  });
+
+  it("uses unique official codes including the tournament foils", () => {
     const codes = album.stickers.map((s) => s.code);
-    expect(new Set(codes).size).toBe(codes.length); // unique
-    codes.forEach((code, i) => expect(code).toBe(String(i + 1))); // 1..N in order
+    expect(new Set(codes).size).toBe(codes.length);
+    expect(codes).toContain("00");
+    expect(codes).toContain("FWC1");
+    expect(codes).toContain("FWC19");
   });
 
-  it("has one section per team plus the intro, with team stickers linked to a team", () => {
-    const sections = new Set(album.stickers.map((s) => s.section));
-    expect(sections.has("Tournament")).toBe(true);
-    for (const team of TEAMS) expect(sections.has(team.name)).toBe(true);
-
-    const teamIds = new Set(TEAMS.map((t) => t.id));
-    for (const s of album.stickers) {
-      if (s.section === "Tournament") {
-        expect(s.teamId).toBeNull();
-      } else {
-        expect(s.teamId).not.toBeNull();
-        expect(teamIds.has(s.teamId!)).toBe(true);
+  it("gives every team a Tournament-style section of 20 codes prefixed by its code", () => {
+    for (const team of TEAMS) {
+      const teamStickers = album.stickers.filter((s) => s.section === team.name);
+      expect(teamStickers).toHaveLength(20);
+      for (const s of teamStickers) {
+        expect(s.code.startsWith(team.code)).toBe(true);
+        expect(s.teamId).toBe(team.id);
       }
     }
+  });
+
+  it("keeps non-team sections (Tournament, Extra Stickers) unlinked to a team", () => {
+    const sections = new Set(album.stickers.map((s) => s.section));
+    expect(sections.has("Tournament")).toBe(true);
+    expect(sections.has("Extra Stickers")).toBe(true);
+
+    for (const s of album.stickers) {
+      if (s.section === "Tournament" || s.section === "Extra Stickers") {
+        expect(s.teamId).toBeNull();
+      }
+    }
+    expect(album.stickers.filter((s) => s.section === "Extra Stickers")).toHaveLength(20);
   });
 });

@@ -3,20 +3,26 @@ import { TEAMS } from "./teams";
 /**
  * Checklist for the Panini World Cup 2026 sticker collection.
  *
- * ⚠️ SCAFFOLD DATA — codes and labels below are PLACEHOLDERS that mirror the
- * real album's shape (an intro section + one section per team). Replace
- * `buildPaniniWc2026()`'s output with the official checklist when it's supplied.
- * Keep it text-only: NO copyrighted images, logos, or player photos — just the
- * official card code and a plain label, which is all the tracker needs.
+ * CODES are real and follow the official scheme (sourced from public checklists):
+ *   - "00"            Panini logo
+ *   - "FWC1".."FWC19" tournament foils (emblem/mascots/slogan/ball, host-country
+ *                     foils CAN/MEX/USA, FIFA Museum past-winner foils)
+ *   - "<CODE>1".."<CODE>20" for each of the 48 teams (per-team country code from
+ *     teams.ts; 1–2 = badge foils, 13 = team photo, the rest are players)
+ *   - Extra Stickers: 20 ultra-rare players keyed by country code
  *
- * Same role as `teams.ts`: a single source of truth that `scripts/seed.ts`
- * syncs into the `sticker_sets` / `stickers` tables (idempotent, self-healing).
+ * LABELS are partly placeholders — the individual player NAMES aren't encoded
+ * here yet (drop them in when you have the verbatim list). Keep it text-only: NO
+ * copyrighted images, logos, or photos — just the official code + a plain label.
+ *
+ * Same role as `teams.ts`: a single source of truth that `scripts/seed.ts` syncs
+ * into the `sticker_sets` / `stickers` tables (idempotent, self-healing).
  */
 
 export const PANINI_WC2026_SET_ID = "wc-2026";
 
 export interface StickerSeed {
-  /** Official card code printed on the sticker, e.g. "1" or "BRA 3". */
+  /** Official card code printed on the sticker, e.g. "FWC9" or "BRA13". */
   code: string;
   label: string;
   section: string;
@@ -30,43 +36,78 @@ export interface StickerSetSeed {
   stickers: StickerSeed[];
 }
 
-// Scaffold knobs — tune to match the real album once known.
-const INTRO_STICKERS = [
-  "Official Emblem",
-  "Official Mascots",
-  "The Trophy",
-  "Host Cities",
-  "Opening Match",
-  "Tournament Poster",
+/** 20 stickers per team. Slots 1–2 are badge foils, 13 is the team photo. */
+const TEAM_STICKERS = 20;
+const TEAM_BADGE_SLOTS = 2;
+const TEAM_PHOTO_SLOT = 13;
+
+/** Best-known labels for the tournament foils; the rest are museum winners. */
+const FWC_LABELS: Record<number, string> = {
+  1: "Official Emblem",
+  2: "Official Mascots",
+  3: "Official Slogan",
+  4: "Official Ball",
+  5: "Trophy",
+  6: "Host Country — Canada",
+  7: "Host Country — Mexico",
+  8: "Host Country — USA",
+};
+
+/**
+ * The 20 Extra Stickers. No number is printed on the back, so we key each by the
+ * player's country code. Each also exists in bronze / silver / gold finishes —
+ * not tracked separately yet (a possible future enhancement).
+ */
+const EXTRA_PLAYERS: { code: string; name: string }[] = [
+  { code: "ARG", name: "Lionel Messi" },
+  { code: "BEL", name: "Jérémy Doku" },
+  { code: "BRA", name: "Vinícius Júnior" },
+  { code: "CAN", name: "Alphonso Davies" },
+  { code: "COL", name: "Luis Díaz" },
+  { code: "CRO", name: "Luka Modrić" },
+  { code: "ECU", name: "Moisés Caicedo" },
+  { code: "EGY", name: "Mohamed Salah" },
+  { code: "ENG", name: "Jude Bellingham" },
+  { code: "FRA", name: "Kylian Mbappé" },
+  { code: "GER", name: "Florian Wirtz" },
+  { code: "KOR", name: "Heung-min Son" },
+  { code: "MEX", name: "Raúl Jiménez" },
+  { code: "MAR", name: "Achraf Hakimi" },
+  { code: "NED", name: "Cody Gakpo" },
+  { code: "NOR", name: "Erling Haaland" },
+  { code: "POR", name: "Cristiano Ronaldo" },
+  { code: "ESP", name: "Lamine Yamal" },
+  { code: "URU", name: "Federico Valverde" },
+  { code: "USA", name: "Christian Pulisic" },
 ];
-const PLAYERS_PER_TEAM = 18;
 
 export function buildPaniniWc2026(): StickerSetSeed {
   const stickers: StickerSeed[] = [];
-  let n = 0;
-  const next = () => String(++n); // sequential card codes, like the real album
+  const push = (code: string, label: string, section: string, teamId: string | null = null) =>
+    stickers.push({ code, label, section, teamId });
 
-  // Intro / tournament section.
-  for (const label of INTRO_STICKERS) {
-    stickers.push({ code: next(), label, section: "Tournament", teamId: null });
+  // Tournament / intro: "00" + "FWC1".."FWC19".
+  push("00", "Panini Logo", "Tournament");
+  for (let i = 1; i <= 19; i++) {
+    push(`FWC${i}`, FWC_LABELS[i] ?? "FIFA Museum — Past Winner", "Tournament");
   }
 
-  // One section per team: a team header sticker + squad slots.
+  // One section per team: "<CODE>1".."<CODE>20".
   for (const team of TEAMS) {
-    stickers.push({
-      code: next(),
-      label: `${team.name} — Team Badge`,
-      section: team.name,
-      teamId: team.id,
-    });
-    for (let i = 1; i <= PLAYERS_PER_TEAM; i++) {
-      stickers.push({
-        code: next(),
-        label: `${team.name} — Squad ${i}`,
-        section: team.name,
-        teamId: team.id,
-      });
+    for (let i = 1; i <= TEAM_STICKERS; i++) {
+      const label =
+        i <= TEAM_BADGE_SLOTS
+          ? "Team Badge (foil)"
+          : i === TEAM_PHOTO_SLOT
+            ? "Team Photo"
+            : "Player";
+      push(`${team.code}${i}`, label, team.name, team.id);
     }
+  }
+
+  // Extra Stickers: ultra-rare players (no team link).
+  for (const p of EXTRA_PLAYERS) {
+    push(p.code, `${p.name} (Extra)`, "Extra Stickers");
   }
 
   return {
