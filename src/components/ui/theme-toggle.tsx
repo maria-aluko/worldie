@@ -1,17 +1,29 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { cn } from "@/lib/utils";
 
-export function ThemeToggle() {
-  const [light, setLight] = useState(false);
+function subscribe(callback: () => void) {
+  const observer = new MutationObserver(callback);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["class"],
+  });
+  return () => observer.disconnect();
+}
 
-  useEffect(() => {
-    setLight(document.documentElement.classList.contains("light"));
-  }, []);
+function getSnapshot() {
+  return document.documentElement.classList.contains("light");
+}
+
+function getServerSnapshot() {
+  return false;
+}
+
+export function ThemeToggle() {
+  const light = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   function toggle() {
     const next = !light;
-    setLight(next);
     document.documentElement.classList.toggle("light", next);
     localStorage.setItem("theme", next ? "light" : "dark");
   }

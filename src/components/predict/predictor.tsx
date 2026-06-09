@@ -14,12 +14,20 @@ import {
   effectiveThirdPlace,
   emptyState,
   flattenToPicks,
-  qualifiers,
   thirdPlaceCandidates,
   type PredictionState,
 } from "@/lib/predict/model";
+import {
+  normalizeBracket,
+  resolveBracket,
+  roundComplete,
+  setTieWinner,
+  type Tie,
+  type TieStage,
+} from "@/lib/predict/bracket";
 import { isPickLocked } from "@/lib/predict/locks";
 import { SelectN } from "./steps/select-n";
+import { KnockoutRound } from "./steps/knockout-round";
 import { GroupQualifiers } from "./steps/group-qualifiers";
 import { GroupScores } from "./steps/group-scores";
 import { ChampionPick } from "./steps/champion-pick";
@@ -62,7 +70,11 @@ export function Predictor({
   editing?: boolean;
 }) {
   const router = useRouter();
-  const [state, setState] = useState<PredictionState>(() => initialState ?? emptyState());
+  // Prune any loaded picks (incl. legacy free-selection entries) to valid bracket
+  // winners so the editor opens in a consistent state.
+  const [state, setState] = useState<PredictionState>(() =>
+    initialState ? normalizeBracket(level, initialState, teams, matches) : emptyState(),
+  );
   const [index, setIndex] = useState(0);
   const [name, setName] = useState(initialName ?? "");
   const [pending, start] = useTransition();
@@ -118,9 +130,14 @@ export function Predictor({
 
   const pick = (ids: string[]) => ids.map((id) => teamsById.get(id)!).filter(Boolean);
 
-  // Helpers to mutate state immutably.
+  // Apply a state change, then prune any knockout picks it invalidated. Used for
+  // upstream edits (group ranks/scores/thirds) so going back keeps the bracket valid.
+  const update = (mutator: (s: PredictionState) => PredictionState) =>
+    setState((s) => normalizeBracket(level, mutator(s), teams, matches));
+
+  // Toggle an id in a bounded set (the standard "8 lucky losers" pick).
   const toggleIn = (key: keyof PredictionState, id: string, max: number) =>
-    setState((s) => {
+    update((s) => {
       const cur = (s[key] as string[]) ?? [];
       const next = cur.includes(id)
         ? cur.filter((x) => x !== id)
@@ -130,9 +147,17 @@ export function Predictor({
       return { ...s, [key]: next };
     });
 
-  const quals = qualifiers(level, state, teams, matches);
   const thirdCandidates = thirdPlaceCandidates(state);
   const bronzeCandidates = state.reach_sf.filter((id) => !state.finalists.includes(id));
+
+  // The knockout bracket resolved from the current group/third picks. Each tie has
+  // concrete teams, so the picker offers one winner per tie (never both).
+  const bracket = useMemo(
+    () => resolveBracket(level, state, teams, matches),
+    [level, state, teams, matches],
+  );
+  const pickWinner = (stage: TieStage) => (tie: Tie, teamId: string) =>
+    setState((s) => setTieWinner(level, s, teams, matches, stage, tie, teamId));
 
   const steps: Step[] = useMemo(() => {
     const meta = LEVELS[level];
@@ -154,7 +179,7 @@ export function Predictor({
               value={state.groupRanks}
               lockedGroups={lockedGroups}
               onChange={(g, ids) =>
-                setState((s) => ({ ...s, groupRanks: { ...s.groupRanks, [g]: ids } }))
+                update((s) => ({ ...s, groupRanks: { ...s.groupRanks, [g]: ids } }))
               }
             />
           ),
@@ -177,7 +202,7 @@ export function Predictor({
               luckyLosers={new Set(effectiveThirdPlace("expert", state, teams, matches))}
               lockedMatches={lockedMatchIds}
               onSet={(id, score) =>
-                setState((s) => ({ ...s, groupScores: { ...s.groupScores, [id]: score } }))
+                update((s) => ({ ...s, groupScores: { ...s.groupScores, [id]: score } }))
               }
             />
           ),
@@ -206,60 +231,56 @@ export function Predictor({
       list.push({
         key: "r16",
         title: "Round of 32",
-        subtitle: "16 of your 32 qualifiers advance. Who survives?",
-        valid: stageLocked.r16 || state.reach_r16.length === 16,
+        subtitle: "16 ties, 16 winners — tap who advances from each.",
+        valid: stageLocked.r16 || roundComplete(bracket.r32),
         node: (
-          <SelectN
-            teams={pick(quals)}
-            selected={state.reach_r16}
-            max={16}
+          <KnockoutRound
+            ties={bracket.r32}
+            teamsById={teamsById}
             locked={stageLocked.r16}
-            onToggle={(id) => toggleIn("reach_r16", id, 16)}
+            onPick={pickWinner("r32")}
           />
         ),
       });
       list.push({
         key: "qf",
-        title: "Quarter-finals",
-        subtitle: "Pick the 8 still standing.",
-        valid: stageLocked.qf || state.reach_qf.length === 8,
+        title: "Round of 16",
+        subtitle: "Pick the winner of each tie.",
+        valid: stageLocked.qf || roundComplete(bracket.r16),
         node: (
-          <SelectN
-            teams={pick(state.reach_r16)}
-            selected={state.reach_qf}
-            max={8}
+          <KnockoutRound
+            ties={bracket.r16}
+            teamsById={teamsById}
             locked={stageLocked.qf}
-            onToggle={(id) => toggleIn("reach_qf", id, 8)}
+            onPick={pickWinner("r16")}
           />
         ),
       });
       list.push({
         key: "sf",
-        title: "Semi-finals",
-        subtitle: "Your final four.",
-        valid: stageLocked.sf || state.reach_sf.length === 4,
+        title: "Quarter-finals",
+        subtitle: "Four ties — pick your semi-finalists.",
+        valid: stageLocked.sf || roundComplete(bracket.qf),
         node: (
-          <SelectN
-            teams={pick(state.reach_qf)}
-            selected={state.reach_sf}
-            max={4}
+          <KnockoutRound
+            ties={bracket.qf}
+            teamsById={teamsById}
             locked={stageLocked.sf}
-            onToggle={(id) => toggleIn("reach_sf", id, 4)}
+            onPick={pickWinner("qf")}
           />
         ),
       });
       list.push({
         key: "final",
-        title: "The Final",
-        subtitle: "Two teams left. Who makes it?",
-        valid: stageLocked.final || state.finalists.length === 2,
+        title: "Semi-finals",
+        subtitle: "Two ties left. Who reaches the final?",
+        valid: stageLocked.final || roundComplete(bracket.sf),
         node: (
-          <SelectN
-            teams={pick(state.reach_sf)}
-            selected={state.finalists}
-            max={2}
+          <KnockoutRound
+            ties={bracket.sf}
+            teamsById={teamsById}
             locked={stageLocked.final}
-            onToggle={(id) => toggleIn("finalists", id, 2)}
+            onPick={pickWinner("sf")}
           />
         ),
       });
@@ -337,6 +358,7 @@ export function Predictor({
     lockedGroups,
     lockedMatchIds,
     stageLocked,
+    bracket,
   ]);
 
   const step = steps[index];
