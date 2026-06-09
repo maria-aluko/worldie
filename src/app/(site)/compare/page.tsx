@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { Distribution } from "@/components/compare/distribution";
 import { pickDistribution, totalEntries } from "@/lib/queries";
@@ -25,9 +24,7 @@ export default async function ComparePage() {
   ]);
 
   return (
-    <>
-      <SiteHeader />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-12">
+    <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-12">
         <div className="mb-8">
           <h1 className="font-display text-4xl font-extrabold sm:text-5xl">
             What the world thinks
@@ -58,8 +55,7 @@ export default async function ComparePage() {
             <Button href="/predict">Make your prediction →</Button>
           </div>
         </div>
-      </main>
-    </>
+    </main>
   );
 }
 

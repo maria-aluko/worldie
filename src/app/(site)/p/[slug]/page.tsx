@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SiteHeader } from "@/components/site-header";
 import { PredictionCard } from "@/components/share/prediction-card";
 import { ShareRow } from "@/components/share/share-row";
 import { Button } from "@/components/ui/button";
@@ -48,9 +47,7 @@ export default async function EntryPage({
     : "My 2026 World Cup prediction — make yours:";
 
   return (
-    <>
-      <SiteHeader />
-      <main className="mx-auto w-full max-w-md flex-1 px-5 py-10">
+    <main className="mx-auto w-full max-w-md flex-1 px-5 py-10">
         <div className="mb-6 text-center">
           <h1 className="font-display text-3xl font-extrabold">
             Your call is in. ✅
@@ -99,7 +96,6 @@ export default async function EntryPage({
             Play another level →
           </Link>
         </p>
-      </main>
-    </>
+    </main>
   );
 }

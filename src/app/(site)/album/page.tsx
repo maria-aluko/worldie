@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { SiteHeader } from "@/components/site-header";
 import { ProgressBar } from "@/components/stickers/progress-bar";
 import { BuyLinks } from "@/components/stickers/buy-links";
 import { requireLoggedInUser } from "@/lib/identity";
@@ -16,9 +15,7 @@ export default async function AlbumHubPage() {
   const sets = await getAlbumOverview(user.id);
 
   return (
-    <>
-      <SiteHeader />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-10">
+    <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-10">
         <div className="mb-8">
           <p className="text-xs font-bold uppercase tracking-widest text-faint">Your collection</p>
           <h1 className="font-display text-4xl font-extrabold sm:text-5xl">Sticker album</h1>
@@ -63,7 +60,6 @@ export default async function AlbumHubPage() {
         <div className="mt-8">
           <BuyLinks />
         </div>
-      </main>
-    </>
+    </main>
   );
 }

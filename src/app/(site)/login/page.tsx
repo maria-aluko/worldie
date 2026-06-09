@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { SiteHeader } from "@/components/site-header";
 import { getAuthedUser } from "@/lib/identity";
 import { authConfigured } from "@/lib/supabase/server";
 
@@ -26,9 +25,7 @@ export default async function LoginPage({
   const configured = authConfigured();
 
   return (
-    <>
-      <SiteHeader />
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-5 py-16">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-5 py-16">
         <div className="rounded-3xl border border-white/10 bg-ink-600/40 p-8 text-center">
           <p className="text-xs font-bold uppercase tracking-widest text-faint">Optional</p>
           <h1 className="mt-1 font-display text-3xl font-extrabold">Save your stuff</h1>
@@ -66,8 +63,7 @@ export default async function LoginPage({
             We only use your Google account to recognise you. No posting, ever.
           </p>
         </div>
-      </main>
-    </>
+    </main>
   );
 }
 

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { SiteHeader } from "@/components/site-header";
 import { ProgressBar } from "@/components/stickers/progress-bar";
 import { BuyLinks } from "@/components/stickers/buy-links";
 import { StickerButton } from "@/components/stickers/sticker-button";
@@ -30,9 +29,7 @@ export default async function AlbumSetPage({
   if (!album) notFound();
 
   return (
-    <>
-      <SiteHeader />
-      <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-10">
+    <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-10">
         <div className="mb-2">
           <Link href="/album" className="text-xs font-semibold text-faint hover:text-paper">
             ← All albums
@@ -77,7 +74,6 @@ export default async function AlbumSetPage({
         <div className="mt-10">
           <BuyLinks />
         </div>
-      </main>
-    </>
+    </main>
   );
 }

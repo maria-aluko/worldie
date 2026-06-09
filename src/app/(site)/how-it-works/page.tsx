@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
 import { Button } from "@/components/ui/button";
 import { LEVELS, LEVEL_ORDER } from "@/lib/constants";
 import { REACH_STAGES, SCORING } from "@/lib/scoring";
@@ -36,9 +34,7 @@ function Card({ children, className }: { children: React.ReactNode; className?: 
 
 export default function HowItWorksPage() {
   return (
-    <>
-      <SiteHeader />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-12">
+    <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-12">
         {/* Intro */}
         <div className="mb-10">
           <h1 className="font-display text-4xl font-extrabold sm:text-5xl">How it works</h1>
@@ -180,8 +176,6 @@ export default function HowItWorksPage() {
             Start predicting →
           </Button>
         </div>
-      </main>
-      <SiteFooter />
-    </>
+    </main>
   );
 }

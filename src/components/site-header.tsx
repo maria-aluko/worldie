@@ -1,6 +1,13 @@
 import { Wordmark } from "./ui/wordmark";
 import { Button } from "./ui/button";
 import { ThemeToggle } from "./ui/theme-toggle";
+import {
+  NavMenu,
+  NavMenuItem,
+  NavMenuLabel,
+  NavMenuDivider,
+  navMenuItemClass,
+} from "./ui/nav-menu";
 import { getAuthedUser } from "@/lib/identity";
 import { logout } from "@/lib/actions/auth";
 
@@ -12,42 +19,60 @@ export async function SiteHeader() {
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
         <Wordmark />
         <nav className="flex items-center gap-1 sm:gap-2">
-          <Button href="/compare" variant="ghost" size="sm" className="px-2">
-            <span className="hidden sm:inline">The </span>Crowd
-          </Button>
-          <Button href="/groups" variant="ghost" size="sm" className="px-2">
-            Groups
-          </Button>
-          <Button href="/album" variant="ghost" size="sm" className="px-2">
-            Album
-          </Button>
-          <Button href="/me" variant="ghost" size="sm" className="px-2">
-            <span className="sm:hidden">Me</span>
-            <span className="hidden sm:inline">My stuff</span>
-          </Button>
           <Button
-            href="/how-it-works"
+            href="/album"
             variant="ghost"
             size="sm"
-            className="hidden px-2 sm:inline-flex"
+            className="hidden px-3 sm:inline-flex"
           >
-            How it works
+            Stickers
           </Button>
+          <Button
+            href="/compare"
+            variant="ghost"
+            size="sm"
+            className="hidden px-3 sm:inline-flex"
+          >
+            The Crowd
+          </Button>
+
+          {/* Secondary links. Stickers + The Crowd fold in here on mobile. */}
+          <NavMenu label="More">
+            <NavMenuItem href="/album" className="sm:hidden">
+              Stickers
+            </NavMenuItem>
+            <NavMenuItem href="/compare" className="sm:hidden">
+              The Crowd
+            </NavMenuItem>
+            <NavMenuItem href="/groups">Groups</NavMenuItem>
+            <NavMenuItem href="/how-it-works">How it works</NavMenuItem>
+          </NavMenu>
+
           <ThemeToggle />
-          {user?.isLoggedIn ? (
-            <form action={logout}>
-              <Button type="submit" variant="ghost" size="sm" className="px-2">
-                Log out
-              </Button>
-            </form>
-          ) : (
-            <Button href="/login" variant="ghost" size="sm" className="px-2">
-              Log in
-            </Button>
-          )}
-          <Button href="/predict" size="sm" className="hidden sm:inline-flex">
+
+          <Button href="/predict" size="sm">
             Play
           </Button>
+
+          <NavMenu label="Account">
+            {user?.displayName || user?.email ? (
+              <>
+                <NavMenuLabel>{user.displayName ?? user.email}</NavMenuLabel>
+                <NavMenuDivider />
+              </>
+            ) : null}
+            <NavMenuItem href="/me">My stuff</NavMenuItem>
+            <NavMenuDivider />
+            {user?.isLoggedIn ? (
+              <form action={logout}>
+                <button type="submit" className={navMenuItemClass}>
+                  Log out
+                </button>
+              </form>
+            ) : (
+              <NavMenuItem href="/login">Log in</NavMenuItem>
+            )}
+          </NavMenu>
         </nav>
       </div>
     </header>

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SiteHeader } from "@/components/site-header";
 import { LEVELS, LEVEL_ORDER } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
@@ -21,9 +20,7 @@ const ACCENT_TEXT: Record<string, string> = {
 
 export default function PredictHome() {
   return (
-    <>
-      <SiteHeader />
-      <main className="mx-auto max-w-5xl flex-1 px-5 py-12 sm:py-20">
+    <main className="mx-auto max-w-5xl flex-1 px-5 py-12 sm:py-20">
         <div className="mb-10 text-center">
           <h1 className="font-display text-4xl font-extrabold sm:text-6xl">
             How deep do you go?
@@ -72,7 +69,6 @@ export default function PredictHome() {
             );
           })}
         </div>
-      </main>
-    </>
+    </main>
   );
 }

@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { Flag } from "@/components/ui/flag";
 import { CopyInvite } from "@/components/groups/group-actions";
@@ -45,9 +44,7 @@ export default async function GroupPage({
   const myChampionLabel = myChampion ? `🏆 ${myChampion.code}` : null;
 
   return (
-    <>
-      <SiteHeader />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-10">
+    <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-10">
         <div className="mb-6">
           <p className="text-xs font-bold uppercase tracking-widest text-faint">Group</p>
           <div className="flex flex-wrap items-center gap-3">
@@ -169,7 +166,6 @@ export default async function GroupPage({
             </Button>
           </div>
         )}
-      </main>
-    </>
+    </main>
   );
 }

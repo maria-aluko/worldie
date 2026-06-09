@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
-import { SiteHeader } from "@/components/site-header";
 import { CreateGroupForm } from "@/components/groups/create-group-form";
 import { JoinGroupForm } from "@/components/groups/join-group-form";
 
@@ -9,9 +8,7 @@ export const metadata: Metadata = { title: "Groups" };
 
 export default function GroupsHome() {
   return (
-    <>
-      <SiteHeader />
-      <main className="mx-auto w-full max-w-2xl flex-1 px-5 py-12">
+    <main className="mx-auto w-full max-w-2xl flex-1 px-5 py-12">
         <div className="mb-8 text-center">
           <h1 className="font-display text-4xl font-extrabold sm:text-5xl">
             Bring your crew
@@ -45,7 +42,6 @@ export default function GroupsHome() {
             See them in My stuff →
           </Link>
         </p>
-      </main>
-    </>
+    </main>
   );
 }

@@ -1,4 +1,5 @@
 import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
 import { Button } from "@/components/ui/button";
 
 export default function NotFound() {
@@ -18,6 +19,7 @@ export default function NotFound() {
           </Button>
         </div>
       </main>
+      <SiteFooter />
     </>
   );
 }

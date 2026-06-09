@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { Flag } from "@/components/ui/flag";
 import { ClaimForm } from "@/components/claim/claim-form";
@@ -28,9 +27,7 @@ export default async function MePage({
   const isEmpty = data.entries.length === 0 && data.groups.length === 0;
 
   return (
-    <>
-      <SiteHeader />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-10">
+    <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-10">
         <div className="mb-8">
           <p className="text-xs font-bold uppercase tracking-widest text-faint">Your account</p>
           <h1 className="font-display text-4xl font-extrabold sm:text-5xl">My stuff</h1>
@@ -193,7 +190,6 @@ export default async function MePage({
             </section>
           </div>
         )}
-      </main>
-    </>
+    </main>
   );
 }

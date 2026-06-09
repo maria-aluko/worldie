@@ -1,6 +1,4 @@
 import Link from "next/link";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
 import { Hero } from "@/components/landing/hero";
 import { Button } from "@/components/ui/button";
 import { LEVELS, LEVEL_ORDER } from "@/lib/constants";
@@ -32,9 +30,7 @@ const STEPS = [
 
 export default function Home() {
   return (
-    <>
-      <SiteHeader />
-      <main className="flex-1">
+    <main className="flex-1">
         <Hero />
 
         {/* How it works */}
@@ -125,8 +121,6 @@ export default function Home() {
             </div>
           </div>
         </section>
-      </main>
-      <SiteFooter />
-    </>
+    </main>
   );
 }
