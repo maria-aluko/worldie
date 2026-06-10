@@ -6,10 +6,9 @@ import {
   NavMenuItem,
   NavMenuLabel,
   NavMenuDivider,
-  navMenuItemClass,
 } from "./ui/nav-menu";
 import { getAuthedUser } from "@/lib/identity";
-import { logout } from "@/lib/actions/auth";
+import { LogoutButton } from "./logout-button";
 
 export async function SiteHeader() {
   const user = await getAuthedUser();
@@ -64,11 +63,7 @@ export async function SiteHeader() {
             <NavMenuItem href="/me">My stuff</NavMenuItem>
             <NavMenuDivider />
             {user?.isLoggedIn ? (
-              <form action={logout}>
-                <button type="submit" className={navMenuItemClass}>
-                  Log out
-                </button>
-              </form>
+              <LogoutButton />
             ) : (
               <NavMenuItem href="/login">Log in</NavMenuItem>
             )}

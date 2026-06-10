@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { clearUserIdCookie } from "@/lib/identity";
 import { authConfigured, createSupabaseServerClient } from "@/lib/supabase/server";
@@ -19,5 +20,9 @@ export async function logout(): Promise<void> {
     }
   }
   await clearUserIdCookie();
+  // Purge the client Router Cache so the layout (and its SiteHeader navbar)
+  // re-renders without the now-deleted `wid` cookie. Without this, the soft
+  // navigation from redirect() reuses the cached, still-logged-in navbar.
+  revalidatePath("/", "layout");
   redirect("/");
 }
