@@ -195,10 +195,16 @@ export const stickers = pgTable(
     label: text("label"), // plain text name (no image)
     section: text("section").notNull(), // grouping, e.g. team name or "Tournament"
     teamId: text("team_id").references(() => teams.id, { onDelete: "set null" }),
+    // Finish for Extra Stickers ("bronze"|"silver"|"gold"); the sentinel "base"
+    // marks a regular (single-finish) sticker. Kept non-null so the unique index
+    // below treats it as a normal key (Postgres counts NULLs as distinct, which
+    // would let the seed upsert duplicate every regular sticker). The app maps
+    // "base" ↔ null at the query boundary.
+    tier: text("tier").notNull().default("base"),
     sortOrder: integer("sort_order").notNull().default(0),
   },
   (t) => [
-    uniqueIndex("stickers_set_code_idx").on(t.setId, t.code),
+    uniqueIndex("stickers_set_code_idx").on(t.setId, t.code, t.tier),
     index("stickers_set_idx").on(t.setId),
   ],
 );
@@ -206,7 +212,9 @@ export const stickers = pgTable(
 /**
  * A player's status for a sticker. Sparse: a missing row means "not owned"
  * (the default), so we only store the stickers a player has interacted with.
- * `status` ∈ "owned" | "swappable" | "desired".
+ * `status` ∈ "owned" | "desired". `count` is the number of physical copies held
+ * — ≥1 for "owned" (copies ≥2 means `count - 1` spares to swap, derived, not a
+ * separate status); "desired" (wanted) rows carry 0.
  */
 export const userStickers = pgTable(
   "user_stickers",
@@ -218,6 +226,7 @@ export const userStickers = pgTable(
       .notNull()
       .references(() => stickers.id, { onDelete: "cascade" }),
     status: text("status").notNull(), // StickerStatus
+    count: integer("count").notNull().default(1), // copies held
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

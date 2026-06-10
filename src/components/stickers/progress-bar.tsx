@@ -1,6 +1,6 @@
 import { pct } from "@/lib/utils";
 
-/** Album completion bar: collected (owned + swappable) out of total. */
+/** Album completion bar: collected (distinct stickers owned) out of total. */
 export function ProgressBar({ collected, total }: { collected: number; total: number }) {
   const percent = pct(collected, total);
   return (

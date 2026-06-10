@@ -3,13 +3,34 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { StickerButton } from "./sticker-button";
-import type { StickerStatus } from "@/lib/types";
+import type { StickerStatus, Tier } from "@/lib/types";
 
 export interface AlbumSectionSticker {
   id: string;
   code: string;
   label: string | null;
+  tier: Tier | null;
   status: StickerStatus;
+  count: number;
+}
+
+/** Drop the " · <Finish>" finish marker so a tier group shows the player once. */
+function baseName(label: string | null): string {
+  return label?.replace(/\s·\s(?:Bronze|Silver|Gold)\)/, ")") ?? "";
+}
+
+/** Group tiered stickers (Extras) by code, preserving checklist order. */
+function groupByCode(stickers: AlbumSectionSticker[]) {
+  const groups: { code: string; name: string; stickers: AlbumSectionSticker[] }[] = [];
+  for (const s of stickers) {
+    let g = groups.find((x) => x.code === s.code);
+    if (!g) {
+      g = { code: s.code, name: baseName(s.label), stickers: [] };
+      groups.push(g);
+    }
+    g.stickers.push(s);
+  }
+  return groups;
 }
 
 /**
@@ -31,6 +52,7 @@ export function AlbumSection({
   const [open, setOpen] = useState(false);
   const total = stickers.length;
   const complete = total > 0 && collected === total;
+  const tiered = stickers.some((s) => s.tier);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-white/10 bg-ink-600/40">
@@ -70,19 +92,43 @@ export function AlbumSection({
           />
         </svg>
       </button>
-      {open && (
-        <div className="flex flex-wrap gap-2 border-t border-white/10 px-4 py-4">
-          {stickers.map((s) => (
-            <StickerButton
-              key={s.id}
-              id={s.id}
-              code={s.code}
-              label={s.label}
-              initialStatus={s.status}
-            />
-          ))}
-        </div>
-      )}
+      {open &&
+        (tiered ? (
+          <div className="space-y-2 border-t border-white/10 px-4 py-4">
+            {groupByCode(stickers).map((g) => (
+              <div key={g.code} className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <span className="min-w-28 text-xs font-semibold text-muted">{g.name}</span>
+                <div className="flex flex-wrap gap-2">
+                  {g.stickers.map((s) => (
+                    <StickerButton
+                      key={s.id}
+                      id={s.id}
+                      code={s.code}
+                      label={s.label}
+                      tier={s.tier}
+                      initialStatus={s.status}
+                      initialCount={s.count}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2 border-t border-white/10 px-4 py-4">
+            {stickers.map((s) => (
+              <StickerButton
+                key={s.id}
+                id={s.id}
+                code={s.code}
+                label={s.label}
+                tier={s.tier}
+                initialStatus={s.status}
+                initialCount={s.count}
+              />
+            ))}
+          </div>
+        ))}
     </div>
   );
 }

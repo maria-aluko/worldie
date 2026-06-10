@@ -46,7 +46,7 @@ export default async function AlbumHubPage() {
                 <ProgressBar collected={s.collected} total={s.total} />
                 <div className="mt-3 flex gap-4 text-xs text-muted">
                   <span>
-                    <span className="font-semibold text-cyan">{s.swappable}</span> to swap
+                    <span className="font-semibold text-cyan">{s.spares}</span> to swap
                   </span>
                   <span>
                     <span className="font-semibold text-magenta">{s.desired}</span> wanted

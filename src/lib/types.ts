@@ -6,10 +6,24 @@ export type Level = "standard" | "expert";
 
 /**
  * A player's relationship to a sticker. "not_owned" is the default and is
- * represented by the absence of a `user_stickers` row. "desired" is reserved
- * for a future location-based swap-matching feature.
+ * represented by the absence of a `user_stickers` row. "owned" carries a copy
+ * count (≥1); spares to trade are derived (`count - 1`), not a separate status.
+ * "desired" means wanted-but-not-owned (count 0).
  */
-export type StickerStatus = "not_owned" | "owned" | "swappable" | "desired";
+export type StickerStatus = "not_owned" | "owned" | "desired";
+
+/**
+ * Finish of an Extra Sticker. Each of the 20 Extra players exists in three
+ * finishes; regular stickers have no tier (`null`).
+ */
+export type Tier = "bronze" | "silver" | "gold";
+
+/**
+ * DB sentinel stored in `stickers.tier` for a regular (single-finish) sticker.
+ * The column is non-null so the unique index keys cleanly; the app treats this
+ * value as "no finish" (null). See `stickers` in lib/db/schema.ts.
+ */
+export const NO_TIER = "base";
 
 export type MatchStatus = "scheduled" | "live" | "finished";
 

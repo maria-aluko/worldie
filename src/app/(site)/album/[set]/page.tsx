@@ -41,7 +41,7 @@ function bucketByGroup(sections: AlbumSectionView[]) {
 }
 
 const collectedIn = (section: AlbumSectionView) =>
-  section.stickers.filter((s) => s.status === "owned" || s.status === "swappable").length;
+  section.stickers.filter((s) => s.status === "owned").length;
 
 export default async function AlbumSetPage({
   params,
@@ -76,7 +76,7 @@ export default async function AlbumSetPage({
                 {l.label}
               </span>
             ))}
-            <span className="text-faint">Tap a code to change its status.</span>
+            <span className="text-faint">Tap a code to set its status and how many copies you have.</span>
           </div>
         </div>
 

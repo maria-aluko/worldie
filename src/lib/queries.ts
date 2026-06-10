@@ -1,7 +1,8 @@
 import "server-only";
 import { and, eq, desc, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
-import type { Entry, Level, Pick, StickerStatus } from "@/lib/types";
+import type { Entry, Level, Pick, StickerStatus, Tier } from "@/lib/types";
+import { NO_TIER } from "@/lib/types";
 import { TEAMS_BY_ID } from "@/lib/data/teams";
 
 export interface EntryView {
@@ -308,7 +309,9 @@ export interface AlbumStickerView {
   id: string;
   code: string;
   label: string | null;
+  tier: Tier | null; // finish for Extra Stickers; null otherwise
   status: StickerStatus; // "not_owned" when the player has no row
+  count: number; // copies held (0 when not owned / desired)
 }
 
 export interface AlbumSectionView {
@@ -319,10 +322,11 @@ export interface AlbumSectionView {
 
 export interface AlbumProgress {
   total: number;
-  /** Physically held = owned + swappable. */
+  /** Distinct stickers owned (copies ≥ 1). */
   collected: number;
-  owned: number;
-  swappable: number;
+  /** Spare copies available to swap = Σ(copies − 1) over owned stickers. */
+  spares: number;
+  /** Wanted-but-not-owned. */
   desired: number;
 }
 
@@ -351,41 +355,45 @@ export async function getAlbum(setId: string, userId: string | null): Promise<Al
     .where(eq(schema.stickers.setId, setId))
     .orderBy(schema.stickers.sortOrder);
 
-  const statusBySticker = new Map<string, StickerStatus>();
+  const ownedBySticker = new Map<string, { status: StickerStatus; count: number }>();
   if (userId) {
     const rows = await db
       .select({
         stickerId: schema.userStickers.stickerId,
         status: schema.userStickers.status,
+        count: schema.userStickers.count,
       })
       .from(schema.userStickers)
       .innerJoin(schema.stickers, eq(schema.userStickers.stickerId, schema.stickers.id))
       .where(and(eq(schema.userStickers.userId, userId), eq(schema.stickers.setId, setId)));
-    for (const r of rows) statusBySticker.set(r.stickerId, r.status as StickerStatus);
+    for (const r of rows)
+      ownedBySticker.set(r.stickerId, { status: r.status as StickerStatus, count: r.count });
   }
 
   const progress: AlbumProgress = {
     total: stickerRows.length,
     collected: 0,
-    owned: 0,
-    swappable: 0,
+    spares: 0,
     desired: 0,
   };
   const sections: AlbumSectionView[] = [];
   let current: AlbumSectionView | null = null;
 
   for (const s of stickerRows) {
-    const status = statusBySticker.get(s.id) ?? "not_owned";
-    if (status === "owned") progress.owned++;
-    else if (status === "swappable") progress.swappable++;
-    else if (status === "desired") progress.desired++;
-    if (status === "owned" || status === "swappable") progress.collected++;
+    const owned = ownedBySticker.get(s.id);
+    const status = owned?.status ?? "not_owned";
+    const count = owned?.count ?? 0;
+    if (status === "owned") {
+      progress.collected++;
+      progress.spares += Math.max(0, count - 1);
+    } else if (status === "desired") progress.desired++;
 
     if (!current || current.section !== s.section) {
       current = { section: s.section, teamId: s.teamId, stickers: [] };
       sections.push(current);
     }
-    current.stickers.push({ id: s.id, code: s.code, label: s.label, status });
+    const tier = s.tier === NO_TIER ? null : (s.tier as Tier);
+    current.stickers.push({ id: s.id, code: s.code, label: s.label, tier, status, count });
   }
 
   return {
@@ -401,7 +409,8 @@ export interface AlbumSummary {
   season: string | null;
   total: number;
   collected: number;
-  swappable: number;
+  /** Spare copies available to swap = Σ(copies − 1) over owned stickers. */
+  spares: number;
   desired: number;
 }
 
@@ -421,7 +430,8 @@ export async function getAlbumOverview(userId: string | null): Promise<AlbumSumm
         .select({
           setId: schema.stickers.setId,
           status: schema.userStickers.status,
-          count: sql<number>`count(*)::int`,
+          stickers: sql<number>`count(*)::int`,
+          copies: sql<number>`coalesce(sum(${schema.userStickers.count}), 0)::int`,
         })
         .from(schema.userStickers)
         .innerJoin(schema.stickers, eq(schema.userStickers.stickerId, schema.stickers.id))
@@ -429,24 +439,26 @@ export async function getAlbumOverview(userId: string | null): Promise<AlbumSumm
         .groupBy(schema.stickers.setId, schema.userStickers.status)
     : [];
 
-  const bySet = new Map<string, { owned: number; swappable: number; desired: number }>();
+  // collected = owned stickers; spares = Σ(copies−1) over owned = ownedCopies − ownedStickers.
+  const bySet = new Map<string, { collected: number; spares: number; desired: number }>();
   for (const c of counts) {
-    const agg = bySet.get(c.setId) ?? { owned: 0, swappable: 0, desired: 0 };
-    if (c.status === "owned") agg.owned = c.count;
-    else if (c.status === "swappable") agg.swappable = c.count;
-    else if (c.status === "desired") agg.desired = c.count;
+    const agg = bySet.get(c.setId) ?? { collected: 0, spares: 0, desired: 0 };
+    if (c.status === "owned") {
+      agg.collected = c.stickers;
+      agg.spares = c.copies - c.stickers;
+    } else if (c.status === "desired") agg.desired = c.stickers;
     bySet.set(c.setId, agg);
   }
 
   return sets.map((s) => {
-    const agg = bySet.get(s.id) ?? { owned: 0, swappable: 0, desired: 0 };
+    const agg = bySet.get(s.id) ?? { collected: 0, spares: 0, desired: 0 };
     return {
       id: s.id,
       name: s.name,
       season: s.season,
       total: totalBySet.get(s.id) ?? s.totalCount,
-      collected: agg.owned + agg.swappable,
-      swappable: agg.swappable,
+      collected: agg.collected,
+      spares: agg.spares,
       desired: agg.desired,
     };
   });

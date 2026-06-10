@@ -1,4 +1,5 @@
 import { TEAMS } from "./teams";
+import type { Tier } from "../types";
 
 /**
  * Checklist for the Panini World Cup 2026 sticker collection.
@@ -27,6 +28,8 @@ export interface StickerSeed {
   label: string;
   section: string;
   teamId: string | null;
+  /** Finish for Extra Stickers ("bronze"|"silver"|"gold"); null for regular. */
+  tier: Tier | null;
 }
 
 export interface StickerSetSeed {
@@ -53,10 +56,19 @@ const FWC_LABELS: Record<number, string> = {
   8: "Host Country — USA",
 };
 
+/** Each Extra player exists in these three finishes, tracked separately. */
+const EXTRA_TIERS: Tier[] = ["bronze", "silver", "gold"];
+
+const TIER_LABEL: Record<Tier, string> = {
+  bronze: "Bronze",
+  silver: "Silver",
+  gold: "Gold",
+};
+
 /**
  * The 20 Extra Stickers. No number is printed on the back, so we key each by the
- * player's country code. Each also exists in bronze / silver / gold finishes —
- * not tracked separately yet (a possible future enhancement).
+ * player's country code. Each exists in bronze / silver / gold finishes, seeded
+ * as three separate rows sharing the country code but differing by `tier`.
  */
 const EXTRA_PLAYERS: { code: string; name: string }[] = [
   { code: "ARG", name: "Lionel Messi" },
@@ -83,8 +95,13 @@ const EXTRA_PLAYERS: { code: string; name: string }[] = [
 
 export function buildPaniniWc2026(): StickerSetSeed {
   const stickers: StickerSeed[] = [];
-  const push = (code: string, label: string, section: string, teamId: string | null = null) =>
-    stickers.push({ code, label, section, teamId });
+  const push = (
+    code: string,
+    label: string,
+    section: string,
+    teamId: string | null = null,
+    tier: Tier | null = null,
+  ) => stickers.push({ code, label, section, teamId, tier });
 
   // Tournament / intro: "00" + "FWC1".."FWC19".
   push("00", "Panini Logo", "Tournament");
@@ -105,9 +122,11 @@ export function buildPaniniWc2026(): StickerSetSeed {
     }
   }
 
-  // Extra Stickers: ultra-rare players (no team link).
+  // Extra Stickers: ultra-rare players (no team link), one row per finish.
   for (const p of EXTRA_PLAYERS) {
-    push(p.code, `${p.name} (Extra)`, "Extra Stickers");
+    for (const tier of EXTRA_TIERS) {
+      push(p.code, `${p.name} (Extra · ${TIER_LABEL[tier]})`, "Extra Stickers", null, tier);
+    }
   }
 
   return {
