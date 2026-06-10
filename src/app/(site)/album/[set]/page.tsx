@@ -3,9 +3,10 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ProgressBar } from "@/components/stickers/progress-bar";
 import { BuyLinks } from "@/components/stickers/buy-links";
-import { StickerButton } from "@/components/stickers/sticker-button";
+import { AlbumSection } from "@/components/stickers/album-section";
 import { requireLoggedInUser } from "@/lib/identity";
-import { getAlbum } from "@/lib/queries";
+import { getAlbum, type AlbumSectionView } from "@/lib/queries";
+import { TEAMS_BY_ID } from "@/lib/data/teams";
 
 export const metadata: Metadata = { title: "Sticker album" };
 
@@ -15,6 +16,32 @@ const LEGEND: { label: string; dot: string }[] = [
   { label: "Want", dot: "bg-magenta" },
   { label: "Missing", dot: "bg-white/20" },
 ];
+
+/**
+ * Bucket the album's sections by World Cup group (A–L) using each section's
+ * team. Groups are ordered alphabetically; sections without a team/group (e.g.
+ * legends, stadiums) fall into a trailing "Other" bucket.
+ */
+function bucketByGroup(sections: AlbumSectionView[]) {
+  const buckets = new Map<string, AlbumSectionView[]>();
+  for (const section of sections) {
+    const group = section.teamId ? TEAMS_BY_ID.get(section.teamId)?.group ?? null : null;
+    const key = group ?? "_";
+    const list = buckets.get(key) ?? [];
+    list.push(section);
+    buckets.set(key, list);
+  }
+  return [...buckets.entries()]
+    .sort(([a], [b]) => (a === "_" ? 1 : b === "_" ? -1 : a.localeCompare(b)))
+    .map(([key, groupSections]) => ({
+      key,
+      label: key === "_" ? "Other" : `Group ${key}`,
+      sections: groupSections.sort((a, b) => a.section.localeCompare(b.section)),
+    }));
+}
+
+const collectedIn = (section: AlbumSectionView) =>
+  section.stickers.filter((s) => s.status === "owned" || s.status === "swappable").length;
 
 export default async function AlbumSetPage({
   params,
@@ -27,6 +54,8 @@ export default async function AlbumSetPage({
 
   const album = await getAlbum(set, user.id);
   if (!album) notFound();
+
+  const groups = bucketByGroup(album.sections);
 
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-10">
@@ -51,21 +80,24 @@ export default async function AlbumSetPage({
           </div>
         </div>
 
-        {/* Sections */}
+        {/* Sections — grouped by World Cup group, each country collapsible */}
         <div className="mt-8 space-y-8">
-          {album.sections.map((section) => (
-            <section key={section.section}>
-              <h2 className="mb-3 font-display text-lg font-bold">{section.section}</h2>
-              <div className="flex flex-wrap gap-2">
-                {section.stickers.map((s) => (
-                  <StickerButton
-                    key={s.id}
-                    id={s.id}
-                    code={s.code}
-                    label={s.label}
-                    initialStatus={s.status}
-                  />
-                ))}
+          {groups.map((group) => (
+            <section key={group.key}>
+              <h2 className="mb-3 font-display text-lg font-bold text-muted">{group.label}</h2>
+              <div className="space-y-2">
+                {group.sections.map((section) => {
+                  const team = section.teamId ? TEAMS_BY_ID.get(section.teamId) : null;
+                  return (
+                    <AlbumSection
+                      key={section.section}
+                      title={section.section}
+                      flag={team?.flag ?? null}
+                      collected={collectedIn(section)}
+                      stickers={section.stickers}
+                    />
+                  );
+                })}
               </div>
             </section>
           ))}
